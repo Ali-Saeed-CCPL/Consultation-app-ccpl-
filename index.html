@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/assets/images/ccpl.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Crescent Care — Digital Consultation: patient video consults, doctor portal and second-doctor prescription review."
+    />
+    <title>Digital Consultation · Crescent Care</title>
+    <!-- Theme before first paint (no light flash in dark mode): the saved choice, else the system setting. See src/lib/theme.ts. -->
+    <script>
+      (function () {
+        var theme = null;
+        try { theme = localStorage.getItem("health-pas-theme"); } catch (e) {}
+        if (theme !== "light" && theme !== "dark") {
+          theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body class="antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

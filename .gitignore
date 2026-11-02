@@ -1,0 +1,45 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+test-results/
+playwright-report/
+
+# build output
+dist/
+/build
+/out
+
+# tanstack router codegen cache
+.tanstack/
+
+# logs
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo
+
+# local dev tooling config (per-machine dev server launch settings)
+.claude/
+
+# local Claude Code skills and rules
+.claude/
+.agents/
+.aider-desk/

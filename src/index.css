@@ -1,0 +1,422 @@
+@import "tailwindcss";
+/* --color-* aliases for the same EFU PAS V4 palette. The partners and
+   policies modules address tokens by these names via Tailwind 4
+   arbitrary-value syntax, e.g. text-(--color-mute). Values are identical
+   to the :root block below; only the naming differs. */
+@import "./styles/tokens.css";
+
+/* The families src/main.tsx loads from @fontsource. Bound here so the rest of
+   the sheet keeps addressing them through the same two variables it always has. */
+:root {
+  --font-instrument-sans: "Instrument Sans Variable";
+  --font-ibm-plex-mono: "IBM Plex Mono";
+}
+
+/* Every number input app-wide reads as a plain typed field, not a counter —
+   the native up/down spinner (Chrome/Edge/Safari + Firefox) makes clearing a
+   "0" awkward since the arrows never go below it. Discount/Commission/Rate
+   fields across Schemes, Offerings, etc. all inherit this from one place. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+/* ============================================================================
+   EFU Unified Policy Administration System — design system
+   ----------------------------------------------------------------------------
+   Single source of truth for the consolidated app. Composed of:
+     1. @theme      — token registration so Tailwind generates matching utilities
+     2. :root       — the same tokens as CSS custom properties for plain CSS
+     3. base        — reset + typography defaults
+     4. components  — the EFU PAS V4 semantic component layer
+     5. .ref-*      — legacy utility-composed primitives used by the claims module
+   Fonts are loaded as @fontsource packages in src/main.tsx; the two family names
+   they register are bound to --font-instrument-sans and --font-ibm-plex-mono
+   just above. Never hardcode a family name.
+   ========================================================================== */
+
+@theme {
+  --font-sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+
+  --color-teal: #2d6fc8;
+  --color-teal-deep: #2d6fc8;
+  --color-teal-tint: #e6f0fb;
+
+  --color-indigo: #2d6fc8;
+  --color-indigo-tint: #e6f0fb;
+
+  --color-violet: #0e6e7a;
+  --color-violet-tint: #e3f3f5;
+
+  --color-amber: #b45f1a;
+  --color-amber-tint: #fdf1e4;
+  --color-amber-ink: #8a4a12;
+
+  --color-green: #1e7b52;
+  --color-green-tint: #e6f3ec;
+
+  --color-red: #b0322b;
+  --color-red-tint: #f9e8e7;
+
+  --color-gold: #cfe4fb;
+  --color-gold-deep: #b9d7f8;
+  --color-gold-tint: #e6f0fb;
+
+  --color-primary: #cfe4fb;
+  --color-primary-hover: #b9d7f8;
+  --color-sky-200: #c9dff7;
+  --color-sky-300: #93b4dc;
+  --color-link: #2d6fc8;
+  --color-tint: #e6f0fb;
+
+  --color-ink: #1f2329;
+  --color-body: #474d55;
+  --color-mute: #5f666e;
+  --color-faint: #a0a5ab;
+
+  --color-line: #dde8f5;
+  --color-hair: #edf3fb;
+  --color-canvas: #f5f9fe;
+  --color-white: #ffffff;
+}
+
+:root {
+  --teal: #2d6fc8;
+  --teal-deep: #2d6fc8;
+  --teal-tint: #e6f0fb;
+
+  --primary: #cfe4fb;
+  --primary-hover: #b9d7f8;
+  --sky-200: #c9dff7;
+  --sky-300: #93b4dc;
+  --link: #2d6fc8;
+  --sunken: #eef5fd;
+  --border-input: #80868e;
+
+  --indigo: #2d6fc8;
+  --indigo-tint: #e6f0fb;
+
+  --violet: #0e6e7a;
+  --violet-tint: #e3f3f5;
+
+  --amber: #b45f1a;
+  --amber-tint: #fdf1e4;
+  --amber-ink: #8a4a12;
+
+  --green: #1e7b52;
+  --green-tint: #e6f3ec;
+
+  --red: #b0322b;
+  --red-tint: #f9e8e7;
+
+  --gold: #cfe4fb;
+  --gold-deep: #b9d7f8;
+  --gold-tint: #e6f0fb;
+
+  --ink: #1f2329;
+  --body: #474d55;
+  --mute: #5f666e;
+  --faint: #a0a5ab;
+
+  --line: #dde8f5;
+  --hair: #edf3fb;
+  --canvas: #f5f9fe;
+  --white: #ffffff;
+
+  --accent: var(--teal);
+  --tint: var(--teal-tint);
+  --accent-ink: var(--ink);
+  --sans: var(--font-instrument-sans), system-ui, sans-serif;
+  --mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+}
+
+/* ---------- base ---------- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-instrument-sans), system-ui, sans-serif;
+  font-size: 14px;
+}
+
+a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--ink);
+}
+
+.font-sans {
+  font-family: var(--font-instrument-sans), system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+}
+
+/* Scrollbars and toasts — copied from CCPL-ERP-Frontend/src/index.css. */
+*::-webkit-scrollbar{width:4px;height:4px}
+*::-webkit-scrollbar-button,*::-webkit-scrollbar-button:start,*::-webkit-scrollbar-button:end,*::-webkit-scrollbar-button:vertical:start,*::-webkit-scrollbar-button:vertical:end,*::-webkit-scrollbar-corner{display:none!important;width:0!important;height:0!important;background:transparent}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--hxb-dde8f5,#dde8f5);border-radius:4px}
+*::-webkit-scrollbar-thumb:hover{background:var(--hxb-c9dff7,#c9dff7)}
+html,.rail,.content{scrollbar-width:thin;scrollbar-color:#dde8f5 transparent}
+/* sonner toasts (components/common/toast.tsx) in the same look as .toastmsg */
+.healthtoast{display:flex;align-items:center;gap:10px;background:#1f2329;color:#fff;font-size:12.5px;line-height:1.5;padding:11px 16px;border-radius:9px;box-shadow:0 12px 28px rgba(31,35,41,.22);max-width:min(560px,90vw);border-left:3px solid transparent;font-family:var(--font-ui)}
+.healthtoast b{color:#fff}
+.healthtoast--success{border-left-color:var(--color-teal)}
+.healthtoast--error{border-left-color:var(--color-red)}
+.healthtoast--warning{border-left-color:var(--color-amber,#d99a1e)}
+.healthtoast__desc{opacity:.8}
+.healthtoast__close{background:transparent;border:0;color:#fff;opacity:.6;cursor:pointer}
+
+
+/* ============================================================================
+   .ref-* primitives — utility-composed equivalents retained for the claims
+   module, which was authored against these before the V4 layer landed.
+   Prefer the .card / .badge / .btn component classes above for new work.
+   ========================================================================== */
+
+.ref-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.ref-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 10px var(--mono);
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ref-btn {
+  border: 1px solid var(--sky-300);
+  border-radius: 8px;
+  padding: 8px 16px;
+  background: var(--primary);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.ref-btn:hover {
+  background: var(--primary-hover);
+  border-color: var(--sky-300);
+  color: var(--ink);
+}
+
+.ref-btn-secondary {
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  padding: 8px 16px;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.ref-btn-secondary:hover {
+  background: var(--canvas);
+  border-color: var(--mute);
+  color: var(--ink);
+}
+
+/* Dedicated sidebar scrollbar: invisible until the cursor is on the sidebar
+   (or keyboard focus is inside it). The track keeps its width, so nothing
+   shifts when the thumb appears. */
+.custom-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s ease;
+}
+.module-rail:hover .custom-sidebar-scrollbar,
+.custom-sidebar-scrollbar:has(:focus-visible) {
+  scrollbar-color: #d1d5db transparent;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 9999px;
+}
+.module-rail:hover .custom-sidebar-scrollbar::-webkit-scrollbar-thumb,
+.custom-sidebar-scrollbar:has(:focus-visible)::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+.custom-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+
+/* ============================================================================
+   Digital Consultation additions — built from the same tokens, nothing new
+   in colour. Urdu text uses Noto Sans Arabic (loaded in src/main.tsx).
+   ========================================================================== */
+:root {
+  /* Instrument Sans first: it has no Arabic-script glyphs, so Latin text and
+     digits inside an Urdu block stay in the UI face and only Urdu falls through. */
+  --font-urdu: var(--font-instrument-sans), "Noto Sans Arabic Variable", "Segoe UI", Tahoma, sans-serif;
+}
+[lang="ur"],
+.urdu {
+  font-family: var(--font-urdu);
+  line-height: 1.6;
+}
+/* Mono eyebrows and numbers stay Latin even inside an Urdu block. */
+[lang="ur"] .font-mono {
+  font-family: var(--font-ibm-plex-mono), "Noto Sans Arabic Variable", ui-monospace, monospace;
+  line-height: 1.4;
+}
+/* Letter-spacing pulls joined Urdu letters apart — eyebrows and pills drop it. */
+[lang="ur"] [class*="tracking-"] {
+  letter-spacing: 0 !important;
+}
+
+/* In the components layer so Tailwind utilities (pl-9, py-2, text-[13px]) can adjust them. */
+@layer components {
+  .field-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    background: var(--white);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .field-input:focus {
+    outline: 0;
+    border-color: var(--link);
+    box-shadow: 0 0 0 3px var(--tint);
+  }
+  .field-input::placeholder {
+    color: var(--faint);
+  }
+  .field-label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--body);
+    margin-bottom: 6px;
+  }
+}
+
+/* Incoming-call ring: two expanding halos behind the caller's avatar. */
+@keyframes ring-halo {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.ring-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--green);
+  animation: ring-halo 1.6s var(--ease) infinite;
+}
+.ring-halo.delay {
+  animation-delay: 0.8s;
+}
+
+/* Live dot used on "recording" / "live transcript" badges. */
+@keyframes live-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--red);
+  animation: live-dot 1.2s ease-in-out infinite;
+}
+
+/* A transcript line arriving. */
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.line-in {
+  animation: line-in 0.28s var(--ease) both;
+}
+
+/* Video tiles stay dark in both themes — they stand in for a camera feed. */
+.video-tile {
+  background: radial-gradient(120% 90% at 30% 20%, #2b3a55 0%, #141c2c 70%);
+  color: #f1f4fa;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-halo, .live-dot, .line-in, .tag-ring, .phone-wiggle, .pulse-dot { animation: none !important; }
+}
+
+/* Journey lane chips — from the ERP's V4 component layer. */
+.jc{border-radius:8px;padding:12px 10px}
+.jc .i{font:600 11px var(--mono)}
+.jc .l{font-size:12px;font-weight:500;margin-top:6px}
+.j-indigo{background:var(--indigo-tint)}.j-indigo .i{color:var(--indigo)}
+.j-violet{background:var(--violet-tint)}.j-violet .i{color:var(--violet)}
+.j-teal{background:var(--teal-tint)}.j-teal .i{color:var(--teal)}
+.j-amber{background:var(--amber-tint)}.j-amber .i{color:var(--amber-ink)}
+.j-green{background:var(--green-tint)}.j-green .i{color:var(--green)}
+.j-red{background:var(--red-tint)}.j-red .i{color:var(--red)}
+
+/* Live status tags — a ringing pill pulses and its phone shakes; a waiting
+   or in-call pill gets a blinking dot (components/ui/status-tag.tsx). */
+@keyframes tag-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent); }
+  100% { box-shadow: 0 0 0 7px transparent; }
+}
+.tag-ring {
+  animation: tag-ring 1.4s ease-out infinite;
+}
+@keyframes phone-wiggle {
+  0%, 50%, 100% { transform: rotate(0); }
+  5%, 15%, 25%, 35% { transform: rotate(-15deg); }
+  10%, 20%, 30%, 40% { transform: rotate(15deg); }
+}
+.phone-wiggle {
+  transform-origin: 50% 60%;
+  animation: phone-wiggle 1.6s ease-in-out infinite;
+}
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: live-dot 1.2s ease-in-out infinite;
+}

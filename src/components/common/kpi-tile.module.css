@@ -1,0 +1,208 @@
+/* Ported from the Finance wallboard's KPI tile (.f-wbk) so Policies and
+   Partners & Channels can share the exact same look — big value, trend
+   delta, decorative background sparkline — without depending on the
+   Finance module's store or AI assistant. */
+
+@keyframes pulse {
+  0% {
+    opacity: 0.72;
+    transform: translateY(3px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pop {
+  animation: pulse 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.tile {
+  position: relative;
+  overflow: visible !important;
+  background: var(--hxb-ffffff,#fff);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px 13px;
+  transition: box-shadow .16s, transform .16s;
+  min-width: 0;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 1;
+}
+.tile:hover,
+.tile:focus-within {
+  box-shadow: 0 10px 26px rgba(31,35,41, .16);
+  transform: translateY(-1px);
+  z-index: 500 !important;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 20;
+}
+.tile:hover .head,
+.tile:focus-within .head {
+  z-index: 100 !important;
+}
+
+.lbl {
+  font: 600 11.5px var(--sans);
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--ink, var(--hxf-1f2329,#1f2329));
+  display: block;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.val {
+  font: 600 24px/1.15 var(--mono);
+  font-size: clamp(19px, 1.6vw, 25px);
+  letter-spacing: -.02em;
+  color: var(--ink);
+  display: block;
+  margin: 4px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.del {
+  font: 400 11px 'Instrument Sans', sans-serif;
+  color: var(--mute);
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 0;
+}
+.del .up {
+  color: var(--hxf-15603f,#15603f);
+  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.del .down {
+  color: var(--hxf-8a2620,#8a2620);
+  font-weight: 600;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.del.warn {
+  color: var(--amber-ink, var(--hxf-8a4a12,#8a4a12));
+}
+
+.sparkle {
+  color: var(--hxf-c27803,#c27803);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.spark {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.infoWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.infoBtn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mute, var(--hxf-5f666e,#5f666e));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .16s cubic-bezier(.4, 0, .2, 1);
+  padding: 0;
+  outline: none;
+  user-select: none;
+}
+.infoBtn:hover,
+.infoWrap:hover .infoBtn,
+.infoBtn:focus {
+  color: var(--accent-ink, var(--hxf-2d6fc8,#2d6fc8));
+  background: var(--tint, var(--hxb-e6f0fb,#e6f0fb));
+  border-color: var(--line, var(--hxl-dde8f5,#dde8f5));
+}
+
+.tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -6px;
+  width: 260px;
+  background: var(--hxb-ffffff,#ffffff) !important;
+  border: 1px solid var(--line, var(--hxl-dde8f5,#dde8f5));
+  border-radius: 10px;
+  box-shadow: 0 16px 38px rgba(31,35,41, .26), 0 2px 6px rgba(31,35,41, .08);
+  padding: 11px 13px;
+  z-index: 9999 !important;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: all .18s cubic-bezier(.4, 0, .2, 1);
+  text-align: left;
+}
+.infoWrap:hover .tip,
+.infoBtn:focus + .tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.tip::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  right: 10px;
+  border-width: 0 6px 6px 6px;
+  border-style: solid;
+  border-color: transparent transparent var(--hxl-ffffff,#ffffff) transparent;
+  filter: drop-shadow(0 -1px 0 var(--line, #dde8f5));
+}
+.tipLbl {
+  display: block;
+  font: 600 9.5px var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent-ink, var(--hxf-2d6fc8,#2d6fc8));
+  margin-bottom: 4px;
+}
+.tipDesc {
+  font: 400 11.5px/1.45 var(--sans);
+  color: var(--body, var(--hxf-474d55,#474d55));
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .val {
+    font-size: 19px;
+  }
+}

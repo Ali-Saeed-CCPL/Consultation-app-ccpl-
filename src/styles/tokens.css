@@ -1,0 +1,443 @@
+/*
+  CrescentCare design system tokens.
+  A white and very light blue system: calm, clinical, neutral charcoal text,
+  no navy. `link` (#2d6fc8) is the only mid blue and the deepest blue allowed.
+  Legacy variable names (--color-teal, --color-green, --accent ...) are kept so
+  existing screens keep rendering; they now resolve to the CrescentCare values.
+  Module accents: blue is the default, `.a-teal` is the real teal used for
+  Claims and AI assessment. Indigo and violet are retired (aliased to blue/teal).
+*/
+:root {
+  /* canvas + surfaces */
+  --color-canvas: #f5f9fe;
+  --color-surface: #ffffff;
+  --chrome: var(--color-surface);
+  --nav-ink: var(--color-body);
+  --color-surface-sunken: #eef5fd;
+  --color-tint: #e6f0fb;
+
+  /* brand blues */
+  --color-primary: #cfe4fb;
+  --color-primary-hover: #b9d7f8;
+  --color-sky-200: #c9dff7;
+  --color-sky-300: #93b4dc;
+  --color-link: #2d6fc8;
+  --color-focus: var(--color-link);
+  --color-on-primary: #1f2329;
+
+  /* lines */
+  --color-line: #dde8f5;
+  --color-hair: #edf3fb;
+  --color-border-input: #80868e;
+
+  /* text */
+  --color-ink: #1f2329;
+  --color-body: #474d55;
+  --color-mute: #5f666e;
+  --color-faint: #a0a5ab;
+
+  /* teal section accent (Claims, AI assessment) */
+  --color-teal-sec: #0e6e7a;
+  --color-teal-sec-tint: #e3f3f5;
+  --color-teal-sec-ink: #0a5560;
+
+  /* status */
+  --color-green: #1e7b52;
+  --color-green-tint: #e6f3ec;
+  --color-green-ink: #15603f;
+  --color-amber: #b45f1a;
+  --color-amber-tint: #fdf1e4;
+  --color-amber-ink: #8a4a12;
+  --color-red: #b0322b;
+  --color-red-tint: #f9e8e7;
+  --color-red-ink: #8a2620;
+  --color-danger-body: #8a2620;
+  --color-danger-border: #f0cfcd;
+  --color-on-fill: #ffffff;
+  --color-scrim: rgba(31, 35, 41, 0.35);
+
+  /* legacy aliases — resolve to the CrescentCare values */
+  --color-teal: var(--color-link);
+  --color-teal-deep: var(--color-link);
+  --color-teal-tint: var(--color-tint);
+  --color-gold: var(--color-primary);
+  --color-gold-deep: var(--color-primary-hover);
+  --color-gold-tint: var(--color-tint);
+  --color-indigo: var(--color-link);
+  --color-indigo-tint: var(--color-tint);
+  --color-indigo-ink: var(--color-ink);
+  --color-violet: var(--color-teal-sec);
+  --color-violet-tint: var(--color-teal-sec-tint);
+  --color-violet-ink: var(--color-teal-sec-ink);
+  --color-panel: var(--color-surface-sunken);
+  --color-row-hover: var(--color-surface-sunken);
+  --color-chip: var(--color-surface-sunken);
+  --color-border-field: var(--color-border-input);
+  --color-border-dashed: var(--color-sky-200);
+  --color-brand-sub: var(--color-mute);
+  --color-brand-faint: var(--color-faint);
+  --color-arrow: var(--color-faint);
+
+  --font-ui: var(--font-instrument-sans), system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+
+  --radius-mark: 3px;
+  --radius-xs: 5px;
+  --radius-sm: 7px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-card: 12px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+  --radius-full: 50%;
+
+  --shadow-xs: 0 1px 2px rgba(31, 35, 41, 0.06);
+  --shadow-sm: 0 1px 2px rgba(31, 35, 41, 0.06);
+  --shadow-md: 0 8px 22px rgba(31, 35, 41, 0.08);
+  --shadow-lg: 0 12px 28px rgba(31, 35, 41, 0.14);
+  --shadow-menu: 0 12px 30px rgba(31, 35, 41, 0.16);
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: .15s;
+  --dur-base: .15s;
+  --dur-panel: .28s;
+
+  --layout-x: 28px;
+
+  /* default accent theme (blue); override per-section with .a-* */
+  --accent: var(--color-link);
+  --tint: var(--color-tint);
+  --accent-ink: var(--color-ink);
+}
+
+/* `.a-teal` keeps its name for existing markup and means the default brand blue. */
+.a-teal, .a-blue { --accent: #2d6fc8; --tint: #e6f0fb; --accent-ink: #1f2329; }
+.a-indigo { --accent: #2d6fc8; --tint: #e6f0fb; --accent-ink: #1f2329; }
+.a-violet, .a-claims { --accent: #0e6e7a; --tint: #e3f3f5; --accent-ink: #0a5560; }
+.a-amber { --accent: #b45f1a; --tint: #fdf1e4; --accent-ink: #8a4a12; }
+.a-green { --accent: #1e7b52; --tint: #e6f3ec; --accent-ink: #15603f; }
+.a-red { --accent: #b0322b; --tint: #f9e8e7; --accent-ink: #8a2620; }
+
+/* Focus: 2px solid ring with 2px offset on every control. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Dark theme — <html data-theme="dark"> (toggle in the top bar, src/lib/theme.ts).
+   Re-points every colour variable the app reads: the --color-* tokens above
+   (also Tailwind's @theme names), and index.css's short names (--ink,
+   --white, --canvas …). Selector specificity beats the plain :root blocks
+   regardless of order. Hard-coded colours elsewhere don't follow; they're
+   converted to these variables as they're spotted.
+   ========================================================================== */
+/* Palette: "TPA System - Dark theme" colour tokens.
+   page #0B1220 · chrome #0F1729 · card #131C2E · raised #1A2540
+   border #222D44 / #3A4866 · text #F1F4FA #C3CDE0 #A3AEC2 #8B97AD #5F6E8A
+   nav #A9BADB · primary #8FB0FF / #7FA0F5 · selected #1A2848 · info #101C38
+   danger #E5484D · success #2F9E66 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* page, chrome (header + sidebar), cards, raised chips */
+  --color-canvas: #0B1220;
+  --chrome: #0F1729;
+  --color-surface: #131C2E;
+  --color-surface-sunken: #1A2540;
+  --color-tint: #101C38;
+
+  /* brand blues: --primary is the selected / filled fill (light ink on it) */
+  --color-primary: #1A2848;
+  --color-primary-hover: #22355E;
+  --color-sky-200: #2A3756;
+  --color-sky-300: #3A4F80;
+  --color-link: #8FB0FF;
+  --color-on-primary: #F1F4FA;
+
+  /* lines */
+  --color-line: #222D44;
+  --color-hair: #1A2540;
+  --color-border-input: #3A4866;
+
+  /* text */
+  --color-ink: #F1F4FA;
+  --color-body: #C3CDE0;
+  --color-mute: #8B97AD;
+  --color-faint: #5F6E8A;
+  --nav-ink: #A9BADB;
+
+  /* teal section accent */
+  --color-teal-sec: #4fc1cc;
+  --color-teal-sec-tint: #11303A;
+  --color-teal-sec-ink: #9fe0e6;
+
+  /* status */
+  --color-green: #2F9E66;
+  --color-green-tint: #10291C;
+  --color-green-ink: #7FD6A8;
+  --color-amber: #E0A060;
+  --color-amber-tint: #33251A;
+  --color-amber-ink: #F0C08A;
+  --color-red: #E5484D;
+  --color-red-tint: #3A1719;
+  --color-red-ink: #F5A3A5;
+  --color-danger-body: #F5A3A5;
+  --color-danger-border: #5A2629;
+  --color-on-fill: #ffffff;
+  --color-scrim: rgba(5, 9, 18, 0.6);
+
+  /* Tailwind @theme names that tokens.css doesn't alias */
+  --color-teal: #8FB0FF;
+  --color-teal-deep: #8FB0FF;
+  --color-teal-tint: #1A2848;
+  --color-indigo: #8FB0FF;
+  --color-indigo-tint: #1A2848;
+  --color-violet: #4fc1cc;
+  --color-violet-tint: #11303A;
+  --color-gold: #1A2848;
+  --color-gold-deep: #22355E;
+  --color-gold-tint: #101C38;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --shadow-menu: 0 12px 30px rgba(0, 0, 0, 0.55);
+
+  /* index.css short names */
+  --teal: #8FB0FF;
+  --teal-deep: #8FB0FF;
+  --teal-tint: #1A2848;
+  --primary: #1A2848;
+  --primary-hover: #22355E;
+  --sky-200: #2A3756;
+  --sky-300: #3A4F80;
+  --link: #8FB0FF;
+  --sunken: #1A2540;
+  --border-input: #3A4866;
+  --indigo: #8FB0FF;
+  --indigo-tint: #1A2848;
+  --violet: #4fc1cc;
+  --violet-tint: #11303A;
+  --amber: #E0A060;
+  --amber-tint: #33251A;
+  --amber-ink: #F0C08A;
+  --green: #2F9E66;
+  --green-tint: #10291C;
+  --red: #E5484D;
+  --red-tint: #3A1719;
+  --gold: #1A2848;
+  --gold-deep: #22355E;
+  --gold-tint: #101C38;
+  --ink: #F1F4FA;
+  --body: #C3CDE0;
+  --mute: #8B97AD;
+  --faint: #5F6E8A;
+  --line: #222D44;
+  --hair: #1A2540;
+  --canvas: #0B1220;
+  --white: #131C2E;
+
+  --accent: var(--color-link);
+  --tint: var(--color-tint);
+  --accent-ink: var(--color-ink);
+}
+
+/* Section accents carry their own literal colours - dark versions of each. */
+:root[data-theme="dark"] .a-teal,
+:root[data-theme="dark"] .a-blue,
+:root[data-theme="dark"] .a-indigo { --accent: #8FB0FF; --tint: #101C38; --accent-ink: #F1F4FA; }
+:root[data-theme="dark"] .a-violet,
+:root[data-theme="dark"] .a-claims { --accent: #4fc1cc; --tint: #11303A; --accent-ink: #9fe0e6; }
+:root[data-theme="dark"] .a-amber { --accent: #E0A060; --tint: #33251A; --accent-ink: #F0C08A; }
+:root[data-theme="dark"] .a-green { --accent: #2F9E66; --tint: #10291C; --accent-ink: #7FD6A8; }
+:root[data-theme="dark"] .a-red { --accent: #E5484D; --tint: #3A1719; --accent-ink: #F5A3A5; }
+
+/* Sidebar links read in the softer nav blue; the selected one stays bright. */
+:root[data-theme="dark"] .module-rail .text-\[var\(--body\)\] { color: var(--nav-ink); }
+
+/* Tailwind white/slate utilities used for surfaces: follow the dark surfaces.
+   (text-white stays white - it's used on coloured fills and dark overlays.) */
+:root[data-theme="dark"] .bg-white { background-color: var(--color-surface); }
+:root[data-theme="dark"] .bg-white\/95 { background-color: color-mix(in srgb, var(--color-surface) 95%, transparent); }
+:root[data-theme="dark"] .bg-white\/70 { background-color: color-mix(in srgb, var(--color-surface) 70%, transparent); }
+:root[data-theme="dark"] .bg-white\/60 { background-color: color-mix(in srgb, var(--color-surface) 60%, transparent); }
+
+/* Chrome paints autofilled inputs (saved username / password) light; keep
+   them on the dark card. */
+:root[data-theme="dark"] input:-webkit-autofill,
+:root[data-theme="dark"] input:-webkit-autofill:hover,
+:root[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  caret-color: var(--color-ink);
+}
+
+/* ============================================================================
+   Hard-coded colours in components and stylesheets are written as
+   var(--hx{b,f,l}-RRGGBB, #RRGGBB): undefined in light mode, so the original
+   colour applies; defined here for dark mode by role -
+   b = background (light fills -> dark tints), f = text / icons (dark inks ->
+   light), l = borders (light lines -> dark lines). Generated from the colour.
+   Tailwind's palette scales used in markup are re-pointed the same way.
+   ========================================================================== */
+:root[data-theme="dark"] {
+  --hxb-bbf7d0: #1B512E;
+  --hxb-c9dff7: #19314B;
+  --hxb-cfe4fb: #182E47;
+  --hxb-dbe7fb: #162742;
+  --hxb-dbeafe: #162841;
+  --hxb-dcfce7: #164125;
+  --hxb-dde3e3: #222D44;
+  --hxb-dde8f5: #172B44;
+  --hxb-e3eaea: #222D44;
+  --hxb-e3f3f5: #173C40;
+  --hxb-e6f0fb: #15283E;
+  --hxb-e6f3ec: #1C3B2A;
+  --hxb-edf3fb: #14243B;
+  --hxb-edf7f4: #19382F;
+  --hxb-eef5fd: #13253A;
+  --hxb-eff6ff: #132338;
+  --hxb-f0c9c6: #4F1E1A;
+  --hxb-f0fdf4: #13391F;
+  --hxb-f0fdfa: #133930;
+  --hxb-f1f5f5: #1A2540;
+  --hxb-f1f5f9: #172736;
+  --hxb-f5f9fe: #122236;
+  --hxb-f6f9f9: #1A2540;
+  --hxb-f9e8e7: #3E1715;
+  --hxb-fafbfb: #131C2E;
+  --hxb-fafbfc: #1B232C;
+  --hxb-fbfcfc: #131C2E;
+  --hxb-fbfcfd: #131C2E;
+  --hxb-fcfdfd: #131C2E;
+  --hxb-fcfdfe: #131C2E;
+  --hxb-fde8e8: #3C1414;
+  --hxb-fdf1e4: #3E2A15;
+  --hxb-fee2e2: #3E1515;
+  --hxb-fef2f2: #381313;
+  --hxb-fef3c7: #493F18;
+  --hxb-fffcf7: #352812;
+  --hxb-ffffff: #131C2E;
+  --hxf-017683: #ABE7ED;
+  --hxf-04525c: #ABE6ED;
+  --hxf-06b6a2: #67E9DB;
+  --hxf-0a1e3c: #ABC5ED;
+  --hxf-0a5560: #ABE5ED;
+  --hxf-0b2b2f: #ACE5EC;
+  --hxf-0d5c46: #ABEDDB;
+  --hxf-0e6e7a: #ABE6ED;
+  --hxf-0ea5e9: #67C1E9;
+  --hxf-12292d: #B6DBE2;
+  --hxf-134e4a: #ADEBE7;
+  --hxf-14532d: #ADEBC6;
+  --hxf-14603f: #ABEDD0;
+  --hxf-15603f: #ABEDD0;
+  --hxf-15803d: #ABEDC4;
+  --hxf-164e3f: #AFE9D9;
+  --hxf-166534: #ABEDC4;
+  --hxf-16a34a: #67E997;
+  --hxf-1b6344: #AFE9D0;
+  --hxf-1d6fa4: #6CB5E5;
+  --hxf-1e40af: #6B88E6;
+  --hxf-1e7b52: #ADEBD0;
+  --hxf-1f2329: #F1F4FA;
+  --hxf-2563eb: #6790E9;
+  --hxf-2d6fc8: #71A0DF;
+  --hxf-374151: #C2CAD6;
+  --hxf-474d55: #C3CDE0;
+  --hxf-4a7c59: #92BEA0;
+  --hxf-4b5563: #C3CDE0;
+  --hxf-5d6d70: #C3CDE0;
+  --hxf-5d8085: #99B4B8;
+  --hxf-5f666e: #C3CDE0;
+  --hxf-6b7280: #A3AEC2;
+  --hxf-7b8a8c: #A3AEC2;
+  --hxf-7c2d12: #EDBCAB;
+  --hxf-8a2620: #ECB0AC;
+  --hxf-8a4a12: #EDCAAB;
+  --hxf-92400e: #EDC4AB;
+  --hxf-991b1b: #E56C6C;
+  --hxf-9a3412: #EDBBAB;
+  --hxf-b0322b: #DD7974;
+  --hxf-b07d1e: #E6BB6B;
+  --hxf-b45f1a: #E9A267;
+  --hxf-b54708: #E99767;
+  --hxf-b91c1c: #E86868;
+  --hxf-c2410c: #E98D67;
+  --hxf-c27803: #E9B767;
+  --hxf-c81e1e: #E86868;
+  --hxf-d97706: #E9AD67;
+  --hxl-0d5c46: #47D1AB;
+  --hxl-0e6e7a: #47C2D1;
+  --hxl-86efac: #225936;
+  --hxl-93c5fd: #223C59;
+  --hxl-99f6e4: #22594E;
+  --hxl-b0322b: #D14F47;
+  --hxl-bbf7d0: #225935;
+  --hxl-bfdbfe: #223A59;
+  --hxl-bfe0cd: #28523A;
+  --hxl-bfe3d0: #25553C;
+  --hxl-c3d0d1: #222D44;
+  --hxl-c9dff7: #223C59;
+  --hxl-cccccc: #222D44;
+  --hxl-d4dedf: #222D44;
+  --hxl-d7e2e2: #222D44;
+  --hxl-dbe4e4: #222D44;
+  --hxl-dbe6e7: #222D44;
+  --hxl-dde8f5: #223B59;
+  --hxl-e7eaea: #222D44;
+  --hxl-eef1f1: #222D44;
+  --hxl-f0c9c6: #592622;
+  --hxl-f0cfcd: #592522;
+  --hxl-f1f5f9: #253D56;
+  --hxl-fca5a5: #592222;
+  --hxl-fde68a: #594E22;
+  --hxl-fecaca: #592222;
+  --hxl-fed7aa: #593F22;
+  --hxl-ffffff: #222D44;
+
+  /* Tailwind palette: -50/-100 fills -> dark tints, -200/-300 lines -> dark
+     lines, -600+ text -> light inks. */
+  --color-slate-50: #1A2540; --color-slate-100: #1A2540; --color-slate-200: #222D44; --color-slate-300: #3A4866;
+  --color-slate-400: #5F6E8A; --color-slate-500: #8B97AD; --color-slate-600: #A3AEC2; --color-slate-700: #C3CDE0;
+  --color-gray-50: #1A2540; --color-gray-100: #1A2540; --color-gray-200: #222D44; --color-gray-300: #3A4866;
+  --color-gray-400: #8B97AD; --color-gray-500: #8B97AD; --color-gray-600: #A3AEC2; --color-gray-700: #C3CDE0;
+  --color-emerald-50: #10291C; --color-emerald-100: #133322; --color-emerald-200: #1E4A33;
+  --color-emerald-600: #4CC38A; --color-emerald-700: #7FD6A8; --color-emerald-800: #A7E6C4; --color-emerald-900: #C4F0D8;
+  --color-green-50: #10291C; --color-green-600: #4CC38A; --color-green-700: #7FD6A8;
+  --color-amber-50: #33251A; --color-amber-700: #F0C08A;
+  --color-red-50: #3A1719; --color-red-600: #F07A7E; --color-rose-600: #F07A8E;
+  --color-blue-50: #101C38; --color-blue-200: #2A3D66; --color-blue-700: #8FB0FF;
+  --color-indigo-50: #161F44; --color-indigo-700: #A5B4FC;
+  --color-violet-50: #221A44; --color-violet-600: #B39DFA;
+  --color-purple-50: #2A1A44; --color-purple-700: #D0A8FA;
+}
+
+/* Theme toggle: no transitions while the colours swap (src/lib/theme.ts). */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
+
+/* api-config.css scopes its own palette on .apic (partners, clients, agents,
+   templates, policy lists ...) - its dark values, by how each one is used. */
+:root[data-theme="dark"] .apic {
+  --teal-900: #8FB0FF; --teal-800: #8FB0FF;
+  --teal-700: #5B8DEF; --teal-600: #5B8DEF; --teal-500: #5B8DEF;
+  --teal-100: #1A2848; --teal-50: #101C38;
+  --slate-900: #F1F4FA; --slate-800: #F1F4FA; --slate-700: #C3CDE0; --slate-600: #C3CDE0;
+  --slate-500: #A3AEC2; --slate-400: #8B97AD; --slate-300: #3A4866; --slate-200: #222D44;
+  --slate-100: #1A2540; --slate-50: #172036;
+  --green-700: #7FD6A8; --green-600: #2F9E66; --green-100: #10291C; --green-50: #10291C;
+  --amber-700: #F0C08A; --amber-600: #E0A060; --amber-100: #33251A; --amber-50: #33251A;
+  --red-700: #F5A3A5; --red-600: #E5484D; --red-100: #3A1719; --red-50: #3A1719;
+  --blue-700: #F1F4FA; --blue-600: #8FB0FF; --blue-50: #101C38;
+  --purple-700: #9FE0E6; --purple-50: #11303A;
+  --white: #131C2E;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
