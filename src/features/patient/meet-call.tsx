@@ -2,7 +2,8 @@
    chrome: a white card (title, reference, timer, fullscreen) around a dark
    video stage — the doctor as the main tile, your real camera in the corner,
    live captions along the bottom — and a control bar (mic, camera, captions,
-   leave). The transcript / details panel is a white card beside it. The
+   leave). Beside it a white card holds the in-call chat with the doctor, or
+   the consultation details. The
    fullscreen button puts the card alone on screen, dark, Meet-style.
    Camera and mic are this device's own (features/consult/use-local-media). */
 
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { initialsOf } from "@/components/ui/avatar";
+import ChatPanel from "@/features/consult/chat-panel";
 import SelfVideo from "@/features/consult/self-video";
 import { useLocalMedia, type LocalMedia } from "@/features/consult/use-local-media";
 import { complaintText } from "@/lib/complaint";
@@ -33,14 +35,19 @@ import { useT } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
 import type { Consultation, Doctor, Lang, TranscriptLine } from "@/lib/types";
 
-type Panel = "captions" | "details" | null;
+type Panel = "chat" | "details" | null;
 
 export default function MeetCall({ consult, doctor, onLeave }: { consult: Consultation; doctor: Doctor; onLeave: () => void }) {
   const { t, lang } = useT();
   const now = useNow(1000);
   const media = useLocalMedia();
   const [cc, setCc] = useState(true);
-  const [panel, setPanel] = useState<Panel>("captions");
+  const [panel, setPanel] = useState<Panel>("chat");
+  // Doctor messages that arrived while the chat was closed — a dot on the chat button, as in Meet.
+  const doctorMsgs = (consult.chat ?? []).filter((m) => m.from === "doctor").length;
+  const [seenMsgs, setSeenMsgs] = useState(doctorMsgs);
+  if (panel === "chat" && seenMsgs !== doctorMsgs) setSeenMsgs(doctorMsgs);
+  const unread = panel !== "chat" && doctorMsgs > seenMsgs;
   const card = useRef<HTMLElement>(null);
   const { full, filled, toggle: toggleFull } = useFullscreen(card);
 
@@ -180,9 +187,12 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                 <RoundButton subtle on active={panel === "details"} onClick={() => setPanel((p) => (p === "details" ? null : "details"))} label={t("consultWith")}>
                   <Info size={20} />
                 </RoundButton>
-                <RoundButton subtle on active={panel === "captions"} onClick={() => setPanel((p) => (p === "captions" ? null : "captions"))} label={t("captionsTitle")}>
-                  <MessageSquareText size={20} />
-                </RoundButton>
+                <span className="relative">
+                  <RoundButton subtle on active={panel === "chat"} onClick={() => setPanel((p) => (p === "chat" ? null : "chat"))} label={t("chatTitle")}>
+                    <MessageSquareText size={20} />
+                  </RoundButton>
+                  {unread ? <span className="pointer-events-none absolute end-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--white)] bg-[#1a73e8]" /> : null}
+                </span>
               </>
             ) : null}
           </div>
@@ -197,7 +207,7 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
         >
           <header className="flex items-center justify-between border-b border-[var(--hair)] px-4 py-3">
             <div className="flex gap-1 rounded-(--radius-pill) bg-[var(--sunken)] p-0.5">
-              {(["captions", "details"] as const).map((p) => (
+              {(["chat", "details"] as const).map((p) => (
                 <button
                   key={p}
                   type="button"
@@ -206,7 +216,7 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                     panel === p ? "bg-[var(--white)] text-[var(--ink)] shadow-(--shadow-xs)" : "text-[var(--mute)]"
                   }`}
                 >
-                  {p === "captions" ? t("captionsTitle") : t("consultWith")}
+                  {p === "chat" ? t("chatTitle") : t("consultWith")}
                 </button>
               ))}
             </div>
@@ -214,8 +224,13 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
               <X size={16} />
             </button>
           </header>
-          {panel === "captions" ? (
-            <TranscriptList lines={consult.transcript} lang={lang} doctorLabel={doctorShort} youLabel={t("you")} />
+          {panel === "chat" ? (
+            <ChatPanel
+              consult={consult}
+              me="patient"
+              otherName={doctorShort}
+              labels={{ note: t("chatNote"), empty: t("chatEmpty"), placeholder: t("chatPlaceholder"), send: t("chatSend"), you: t("you") }}
+            />
           ) : (
             <div className="grid content-start gap-4 overflow-y-auto px-5 py-4 text-[13px]">
               <dl className="grid grid-cols-[96px_1fr] gap-y-2.5">
@@ -372,28 +387,6 @@ function CaptionText({ line, lang }: { line: TranscriptLine; lang: Lang }) {
     <span lang={urdu ? "ur" : "en"} dir={urdu ? "rtl" : "ltr"}>
       {text}
     </span>
-  );
-}
-
-function TranscriptList({ lines, lang, doctorLabel, youLabel }: { lines: TranscriptLine[]; lang: Lang; doctorLabel: string; youLabel: string }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
-  }, [lines.length]);
-  return (
-    <div ref={scroller} className="slim-scrollbar flex-1 space-y-3.5 overflow-y-auto px-5 py-4">
-      {lines.length === 0 ? <p className="py-6 text-center text-[13px] text-[var(--mute)]">…</p> : null}
-      {lines.map((l) => (
-        <div key={l.id} className="line-in">
-          <div className={`text-[12px] font-semibold ${l.speaker === "doctor" ? "text-[var(--link)]" : "text-[var(--color-teal-sec)]"}`}>
-            {l.speaker === "doctor" ? doctorLabel : youLabel}
-          </div>
-          <p className="text-[13.5px] leading-relaxed text-[var(--ink)]">
-            <CaptionText line={l} lang={lang} />
-          </p>
-        </div>
-      ))}
-    </div>
   );
 }
 

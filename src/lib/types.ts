@@ -71,6 +71,14 @@ export interface TranscriptLine {
   gloss?: string;
 }
 
+/** A typed message in the call's chat box (Meet-style "in-call messages"). */
+export interface ChatMessage {
+  id: string;
+  at: number;
+  from: "doctor" | "patient";
+  text: string;
+}
+
 export interface RxItem {
   id: string;
   drug: string;
@@ -102,6 +110,8 @@ export interface Consultation {
   callStartedAt?: number;
   callEndedAt?: number;
   transcript: TranscriptLine[];
+  /** In-call chat between the patient and the doctor; kept with the consultation. */
+  chat?: ChatMessage[];
   /** Prototype only: this call plays the scripted transcript and gets AI suggestions. */
   scripted?: boolean;
   /** Prototype only: answered by the demo auto-answer, with no doctor tab open —

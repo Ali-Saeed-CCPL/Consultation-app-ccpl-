@@ -10,13 +10,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { BadgeCheck, CalendarClock, LockKeyhole, Phone, PhoneCall, PhoneOff, Sparkles } from "lucide-react";
+import { BadgeCheck, CalendarClock, LockKeyhole, MessageSquareText, Phone, PhoneCall, PhoneOff, Sparkles } from "lucide-react";
 import PageHero from "@/components/layout/page-hero";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import Button from "@/components/ui/button";
 import Section from "@/components/ui/section";
 import StatusTag from "@/components/ui/status-tag";
 import AiAssist from "@/features/consult/ai-assist";
+import ChatPanel from "@/features/consult/chat-panel";
 import { PatientPanel, TimelinePanel } from "@/features/consult/consult-panels";
 import NotesRxEditor, { draftProblems } from "@/features/consult/notes-rx-editor";
 import RxDocument from "@/features/consult/rx-document";
@@ -165,6 +166,12 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
             doctorName={doctor.name}
             patientName={consult.member.name}
           />
+          <section className="flex h-[340px] flex-col overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
+            <header className="flex items-center gap-2 border-b border-[var(--hair)] px-4 py-3 text-[14px] font-semibold text-[var(--ink)]">
+              <MessageSquareText size={16} className="text-[var(--link)]" /> In-call messages
+            </header>
+            <ChatPanel consult={consult} me="doctor" otherName={consult.member.name} />
+          </section>
           <PatientPanel consult={consult} />
         </div>
       </div>

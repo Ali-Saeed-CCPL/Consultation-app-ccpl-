@@ -13,6 +13,7 @@ import { AI_DRAFT, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS } from "@/data/seed";
 import { isClinicOpen } from "@/lib/clinic";
 import type {
   AuditEvent,
+  ChatMessage,
   ClinicalNotes,
   Consultation,
   Doctor,
@@ -53,6 +54,7 @@ interface PlatformState {
   /** Demo auto-answer: put a waiting patient straight into a call with a GP. */
   demoConnect: (id: string) => void;
   appendTranscript: (id: string, line: Omit<TranscriptLine, "id" | "at">) => void;
+  sendChat: (id: string, from: ChatMessage["from"], text: string) => void;
   endCall: (id: string, doctorId: string) => void;
   saveDraft: (id: string, notes: ClinicalNotes, rx: RxItem[]) => void;
   /** The consulting doctor signs off the (AI-drafted, doctor-checked) prescription and it's released. */
@@ -246,6 +248,13 @@ export const usePlatform = create<PlatformState>()(
           set((s) => ({
             consultations: s.consultations.map((c) =>
               c.id === id ? { ...c, transcript: [...c.transcript, { ...line, id: uid(), at: Date.now() }] } : c,
+            ),
+          })),
+
+        sendChat: (id, from, text) =>
+          set((s) => ({
+            consultations: s.consultations.map((c) =>
+              c.id === id ? { ...c, chat: [...(c.chat ?? []), { id: uid(), at: Date.now(), from, text }] } : c,
             ),
           })),
 
