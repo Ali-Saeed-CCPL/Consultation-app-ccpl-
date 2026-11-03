@@ -22,6 +22,7 @@ const STRINGS = {
   clinicOpenNow: { en: "Clinic open now", ur: "کلینک ابھی کھلا ہے" },
   clinicClosesAt: { en: "Closes at 6:00 PM", ur: "شام 6 بجے بند ہو گا" },
   clinicClosedNow: { en: "Clinic closed", ur: "کلینک بند ہے" },
+  closesIn: { en: "Closes in {t}", ur: "{t} میں بند ہو گا" },
   clinicOpensAt: { en: "Opens {time}", ur: "{time} کھلے گا" },
   doctorsFree: { en: "{n} doctors free", ur: "{n} ڈاکٹر دستیاب" },
   doctorFree: { en: "1 doctor free", ur: "1 ڈاکٹر دستیاب" },
@@ -131,6 +132,8 @@ const STRINGS = {
   refLabel: { en: "Reference", ur: "حوالہ" },
 
   chooseTitle: { en: "Who is the consultation for?", ur: "مشاورت کس کے لیے ہے؟" },
+  lastVisit: { en: "Last visit {when}", ur: "آخری مشاورت {when}" },
+  noVisitsYet: { en: "No consultations yet", ur: "ابھی کوئی مشاورت نہیں" },
   chooseLede: { en: "Everyone covered on policy {policy}.", ur: "پالیسی {policy} پر شامل تمام افراد۔" },
   rel_self: { en: "You", ur: "آپ خود" },
   rel_spouse: { en: "Spouse", ur: "شریکِ حیات" },

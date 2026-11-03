@@ -40,6 +40,7 @@ export default function PatientStep({
   children,
   footer,
   back,
+  even,
 }: {
   step?: PatientStepKey;
   title: ReactNode;
@@ -48,6 +49,8 @@ export default function PatientStep({
   footer?: ReactNode;
   /** The previous step, as a "Back" button at the start of the footer. */
   back?: string;
+  /** A short step: the three columns end level (rails stretch to the card) — no sticky rails needed. */
+  even?: boolean;
 }) {
   const body = (
     <section className={`flex min-w-0 flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)`}>
@@ -68,13 +71,13 @@ export default function PatientStep({
 
   if (!step) return <div className="line-in">{body}</div>;
   return (
-    <div className="line-in grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_320px] 2xl:grid-cols-[300px_minmax(0,1fr)_360px]">
+    <div className={`line-in grid ${even ? "items-stretch" : "items-start"} gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_320px] 2xl:grid-cols-[300px_minmax(0,1fr)_360px]`}>
       {/* Below lg the rail gives way to the compact stepper inside the card, so the task comes first. */}
-      <div className={`hidden lg:sticky lg:top-[134px] lg:flex ${RAIL_H}`}>
+      <div className={even ? "hidden lg:flex" : `hidden lg:sticky lg:top-[134px] lg:flex ${RAIL_H}`}>
         <JourneyRail step={step} />
       </div>
       {body}
-      <JourneyInfo step={step} />
+      <JourneyInfo step={step} even={even} />
     </div>
   );
 }
@@ -193,7 +196,7 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
           );
         })}
       </ol>
-      <div className="flex items-start gap-2 border-t border-[var(--hair)] px-5 py-3 text-[12px] text-[var(--mute)]">
+      <div className="mt-auto flex items-start gap-2 border-t border-[var(--hair)] px-5 py-3 text-[12px] text-[var(--mute)]">
         <LifeBuoy size={14} className="mt-0.5 flex-shrink-0" />
         <span>{t("emergencyNote")}</span>
       </div>
@@ -202,7 +205,7 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
 }
 
 /** The end column: a live summary of the answers, tips for this step, and the clinic right now. */
-function JourneyInfo({ step }: { step: PatientStepKey }) {
+function JourneyInfo({ step, even }: { step: PatientStepKey; even?: boolean }) {
   const { t, lang } = useT();
   const now = useNow(30_000);
   const consult = useJourneyConsult(step);
@@ -245,7 +248,12 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
   if (step === "queue") tips.push({ tone: "info", text: t("keepWaiting") });
 
   return (
-    <aside className={`hidden flex-col gap-5 overflow-y-auto slim-scrollbar [&>*]:flex-shrink-0 xl:sticky xl:top-[134px] xl:flex ${RAIL_H}`}>
+    <aside
+      className={`hidden flex-col gap-5 [&>*]:flex-shrink-0 xl:flex ${
+        // Level with the card: the summary takes up the extra height.
+        even ? "[&>section:first-child]:flex-1" : `overflow-y-auto slim-scrollbar xl:sticky xl:top-[134px] ${RAIL_H}`
+      }`}
+    >
       {/* ── What the doctor will see ─────────────────────────────────── */}
       <section className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
         <header className="border-b border-[var(--hair)] px-5 py-3.5">

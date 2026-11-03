@@ -3,16 +3,16 @@
    who's covered, recent consultations, clinic hours and emergency advice. */
 
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowRight, CalendarClock, ClipboardList, Clock, FileCheck2, Headphones, PhoneCall, Siren, Stethoscope, UserRoundCheck, Users, Video } from "lucide-react";
+import { ArrowRight, CalendarClock, CalendarDays, ClipboardList, Clock, FileCheck2, Headphones, PhoneCall, Siren, Stethoscope, Users, Video } from "lucide-react";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import { HOUSEHOLD } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
-import { fmtDateTime, fmtTime, greetingKey, isClinicOpen, nextOpening, CLINIC_HOURS } from "@/lib/clinic";
+import { fmtDateTime, greetingKey, isClinicOpen, nextOpening, CLINIC_HOURS } from "@/lib/clinic";
 import { useT, type StringKey } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
 import { usePlatform } from "@/store/consult-store";
 import { useSession } from "@/store/session-store";
-import type { Consultation, ConsultStatus } from "@/lib/types";
+import type { ConsultStatus } from "@/lib/types";
 
 /** Where an unfinished consultation picks up again. */
 const RESUME: Partial<Record<ConsultStatus, string>> = {
@@ -41,19 +41,17 @@ export default function HomeScreen() {
   const active = mine.find((c) => c.id === consultId && RESUME[c.status]);
   const rxReady = mine.filter((c) => c.status === "approved" || c.status === "closed").length;
   const recent = mine.filter((c) => c.status !== "intake").slice(0, 6);
-  // The visit card's fallback: the latest consultation that reached a doctor.
-  const last = mine.find((c) => c.callStartedAt);
   const locale = lang === "ur" ? "ur-PK" : "en-PK";
   const dateLine = new Date(now).toLocaleDateString(locale, { timeZone: CLINIC_HOURS.tz, weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
     <div className="grid gap-5 line-in">
       {/* ── Greeting ─────────────────────────────────────────────────────── */}
-      <section className="overflow-hidden rounded-(--radius-xl) border border-[var(--line)] bg-gradient-to-br from-[var(--tint)] to-[var(--white)] px-6 py-6 lg:px-8">
-        <div className="grid items-end gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <section className="overflow-hidden surface-brand rounded-(--radius-xl) px-6 py-5 text-white lg:px-8">
+        <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 max-w-[720px]">
-            <p className="text-[13px] font-medium text-[var(--mute)]">{dateLine}</p>
-            <h1 className="page-title mt-1 sm:text-[28px]">
+            <p className="text-[13px] font-medium text-white/75">{dateLine}</p>
+            <h1 className="page-title mt-1 !text-white sm:text-[28px]">
               {t(greetingKey(now))}, {firstName}
             </h1>
           </div>
@@ -76,15 +74,12 @@ export default function HomeScreen() {
         </div>
       </section>
 
-      {/* ── This visit + quick actions ─────────────────────────────────── */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <VisitCard consult={active ?? last} active={Boolean(active)} doctorName={doctors.find((d) => d.id === (active ?? last)?.prescriberId)?.name} />
-        <div className="grid grid-cols-2 gap-3.5">
-          <QuickTile icon={<Video size={20} />} title={t("newConsult")} onClick={() => navigate({ to: "/patient/choose" })} />
-          <QuickTile icon={<FileCheck2 size={20} />} title={t("recordsTitle")} onClick={() => navigate({ to: "/patient/records" })} />
-          <QuickTile icon={<Headphones size={20} />} title={t("callSupport")} note="0800-00-2273" href="tel:0800002273" />
-          <QuickTile icon={<Siren size={20} />} title={t("sosTitle")} note="1122" href="tel:1122" danger />
-        </div>
+      {/* ── Quick actions ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
+        <QuickTile icon={<Video size={20} />} title={t("newConsult")} onClick={() => navigate({ to: "/patient/choose" })} />
+        <QuickTile icon={<FileCheck2 size={20} />} title={t("recordsTitle")} onClick={() => navigate({ to: "/patient/records" })} />
+        <QuickTile icon={<Headphones size={20} />} title={t("callSupport")} note="0800-00-2273" href="tel:0800002273" />
+        <QuickTile icon={<Siren size={20} />} title={t("sosTitle")} note="1122" href="tel:1122" danger />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
@@ -154,26 +149,9 @@ export default function HomeScreen() {
           </ul>
         </Card>
 
-        {/* ── Hours + emergency ──────────────────────────────────────────── */}
-        <div className="grid content-start gap-5 lg:col-span-2 lg:grid-cols-2 xl:col-span-1 xl:grid-cols-1">
-          <Card title={t("hoursTitle")} icon={<UserRoundCheck size={16} />}>
-            <p className="text-[13.5px] leading-relaxed text-[var(--body)]">{t("hoursBody")}</p>
-            <div className="mt-3 grid grid-cols-7 gap-1" dir="ltr">
-              {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                <span
-                  key={i}
-                  className={`rounded-(--radius-sm) py-1.5 text-center font-mono text-[11px] font-semibold ${
-                    i < 5 ? "bg-[var(--tint)] text-[var(--link)]" : "bg-[var(--sunken)] text-[var(--faint)]"
-                  }`}
-                >
-                  {d}
-                </span>
-              ))}
-            </div>
-            <p className="mt-2 text-[12px] text-[var(--mute)]">
-              {open ? t("clinicClosesAt") : t("clinicOpensAt", { time: fmtTime(nextOpening(now)) })}
-            </p>
-          </Card>
+        {/* ── Hours ──────────────────────────────────────────────────────── */}
+        <div className="grid lg:col-span-2 xl:col-span-1">
+          <ClinicHours now={now} open={open} />
         </div>
       </div>
 
@@ -223,61 +201,79 @@ export default function HomeScreen() {
   );
 }
 
-/** The consultation that matters right now, in the brand blue — one in progress (with
-    Resume), else the latest one a doctor saw (with View prescription), else a nudge to start. */
-function VisitCard({ consult, active, doctorName }: { consult?: Consultation; active: boolean; doctorName?: string }) {
+/** Clinic hours as a calendar and a clock: this week (today marked, weekends closed),
+    the clinic day as a 9–6 line with where "now" is, and how long until it closes or opens. */
+function ClinicHours({ now, open }: { now: number; open: boolean }) {
   const { t, lang } = useT();
-  const navigate = useNavigate();
+  const tz = CLINIC_HOURS.tz;
   const locale = lang === "ur" ? "ur-PK" : "en-PK";
-  const at = consult ? (consult.callStartedAt ?? consult.createdAt) : 0;
-  const pills = consult
-    ? [
-        new Date(at).toLocaleDateString(locale, { timeZone: CLINIC_HOURS.tz, weekday: "short", day: "numeric", month: "short" }),
-        fmtTime(at),
-        complaintText(consult.symptoms, lang),
-      ].filter(Boolean)
-    : [];
-  const released = consult && (consult.status === "approved" || consult.status === "closed");
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const today = days.indexOf(new Date(now).toLocaleDateString("en-US", { timeZone: tz, weekday: "short" }));
+  const week = days.map((_, i) => {
+    const at = now + (i - today) * 86_400_000;
+    return {
+      at,
+      name: new Date(at).toLocaleDateString(locale, { timeZone: tz, weekday: "short" }),
+      date: new Date(at).toLocaleDateString("en-US", { timeZone: tz, day: "numeric" }),
+      openDay: i < 5,
+      isToday: i === today,
+    };
+  });
+  const [hh, mm] = new Date(now).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).split(":").map(Number);
+  const minutes = hh * 60 + mm;
+  const start = CLINIC_HOURS.open * 60;
+  const end = CLINIC_HOURS.close * 60;
+  const inHours = today < 5 && minutes >= start && minutes < end;
+  const left = end - minutes;
+  const pct = Math.min(100, Math.max(0, ((minutes - start) / (end - start)) * 100));
+  const status = inHours
+    ? t("closesIn", { t: `${Math.floor(left / 60)}h ${left % 60}m` })
+    : open
+      ? t("clinicClosesAt")
+      : t("clinicOpensAt", { time: fmtDateTime(nextOpening(now)) });
 
   return (
-    <section className="flex min-h-[200px] flex-col justify-between gap-5 surface-brand rounded-(--radius-xl) p-6 text-white">
-      {consult ? <p className="text-[13px] font-semibold text-white/75">{active ? t("visitNow") : t("visitLast")}</p> : null}
-      {consult ? (
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-[#fff] text-[18px] font-bold text-[var(--action)]">
-            {initialsOf(consult.member.name)}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-[21px] font-bold leading-tight">{lang === "ur" ? consult.member.nameUr : consult.member.name}</p>
-            <p className="text-[13px] text-white/75">{doctorName ?? "—"}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5" dir="ltr">
-              {pills.map((p) => (
-                <span key={p} className="rounded-(--radius-pill) bg-white/15 px-2.5 py-0.5 text-[12px] font-semibold">
-                  {p}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-white/15">
-            <Video size={24} />
-          </span>
-          <p className="text-[21px] font-bold leading-tight">{t("visitNone")}</p>
-        </div>
-      )}
-      <div>
-        <button
-          type="button"
-          onClick={() => navigate({ to: active && consult ? RESUME[consult.status]! : consult ? "/patient/records" : "/patient/choose" })}
-          className="inline-flex items-center gap-2 rounded-(--radius-md) bg-[#fff] px-4 py-2.5 text-[13.5px] font-bold text-[var(--action)] hover:bg-[#eef4fc]"
-        >
-          {active ? <PhoneCall size={16} /> : null}
-          {active ? t("resumeCta") : released ? t("viewRx") : consult ? t("viewRecords") : t("startCta")}
-        </button>
+    <Card title={t("hoursTitle")} icon={<CalendarDays size={16} />} sub={t("hoursBody")} fill>
+      <div className="flex items-center justify-between gap-3 rounded-(--radius-md) bg-[var(--sunken)] px-3.5 py-2.5">
+        <span className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-[var(--ink)]">
+          <span className={`h-2 w-2 rounded-full ${open ? "bg-[var(--green)]" : "bg-[var(--faint)]"}`} />
+          {open ? t("clinicOpenNow") : t("clinicClosedNow")}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[12.5px] text-[var(--mute)]">
+          <Clock size={13} /> {status}
+        </span>
       </div>
-    </section>
+
+      {/* This week, Mon–Sun */}
+      <div className="grid grid-cols-7 gap-1.5" dir="ltr">
+        {week.map((d) => (
+          <span
+            key={d.at}
+            className={`flex flex-col items-center rounded-(--radius-md) py-2.5 ${
+              d.isToday ? "bg-[var(--action)] text-white shadow-(--shadow-sm)" : d.openDay ? "bg-[var(--tint)] text-[var(--link)]" : "bg-[var(--sunken)] text-[var(--faint)]"
+            }`}
+          >
+            <span className="text-[10.5px] font-semibold uppercase">{d.name}</span>
+            <span className="font-mono text-[15px] font-bold leading-tight">{d.date}</span>
+          </span>
+        ))}
+      </div>
+
+      {/* Today's clinic day, 9 AM – 6 PM, with now marked */}
+      <div dir="ltr">
+        <div className="relative h-2 rounded-full bg-[var(--line)]">
+          <div className="h-full rounded-full bg-[var(--action)]" style={{ width: `${today < 5 ? pct : 0}%` }} />
+          {inHours ? (
+            <span className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--white)] bg-[var(--action)] shadow-(--shadow-sm)" style={{ left: `${pct}%` }} />
+          ) : null}
+        </div>
+        <div className="mt-1.5 flex justify-between font-mono text-[10.5px] text-[var(--mute)]">
+          {["9 AM", "12 PM", "3 PM", "6 PM"].map((h) => (
+            <span key={h}>{h}</span>
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -323,9 +319,10 @@ function StatusTile({ tone, icon, title, note }: { tone: "ok" | "warn" | "off" |
   );
 }
 
-function Card({ title, sub, icon, action, children }: { title: string; sub?: React.ReactNode; icon?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode }) {
+/** `fill`: stretch to the row's height and spread the body's blocks over it. */
+function Card({ title, sub, icon, action, fill, children }: { title: string; sub?: React.ReactNode; icon?: React.ReactNode; action?: React.ReactNode; fill?: boolean; children: React.ReactNode }) {
   return (
-    <section className="min-w-0 rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
+    <section className={`min-w-0 rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) ${fill ? "flex h-full flex-col" : ""}`}>
       <header className="flex items-start justify-between gap-3 px-5 pt-4 pb-2">
         <div className="min-w-0">
           <h2 className="section-title flex items-center gap-2">
@@ -336,7 +333,7 @@ function Card({ title, sub, icon, action, children }: { title: string; sub?: Rea
         </div>
         {action}
       </header>
-      <div className="px-5 pb-4">{children}</div>
+      <div className={`px-5 pb-4 ${fill ? "flex flex-1 flex-col justify-between gap-4" : ""}`}>{children}</div>
     </section>
   );
 }
