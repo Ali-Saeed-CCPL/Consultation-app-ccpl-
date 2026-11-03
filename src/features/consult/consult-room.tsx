@@ -10,12 +10,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { BadgeCheck, Download, FileText, Phone, PhoneOff, Printer, Sparkles, UserRound } from "lucide-react";
+import { BadgeCheck, Download, FileText, MessageSquareText, Phone, PhoneOff, Printer, Sparkles, UserRound } from "lucide-react";
 import PageHero from "@/components/layout/page-hero";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import Button from "@/components/ui/button";
 import StatusTag from "@/components/ui/status-tag";
 import AiAssist, { AiWave } from "@/features/consult/ai-assist";
+import ChatPanel from "@/features/consult/chat-panel";
 import { PatientPanel, PatientTab, TimelinePanel } from "@/features/consult/consult-panels";
 import NotesRxEditor, { draftProblems } from "@/features/consult/notes-rx-editor";
 import RxDocument, { downloadRx } from "@/features/consult/rx-document";
@@ -170,12 +171,17 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
 
   const last = consult.transcript[heard - 1];
   // The doctor's order of work: listen with AI assist (summary, what to ask next), then write the prescription.
-  const [tab, setTab] = useState<"rx" | "ai" | "patient">(consult.scripted ? "ai" : "rx");
+  const [tab, setTab] = useState<"rx" | "ai" | "chat" | "patient">(consult.scripted ? "ai" : "rx");
+  // Patient messages that arrived while the chat tab was closed — a dot on the tab.
+  const patientMsgs = (consult.chat ?? []).filter((m) => m.from === "patient").length;
+  const [seenMsgs, setSeenMsgs] = useState(patientMsgs);
+  if (tab === "chat" && seenMsgs !== patientMsgs) setSeenMsgs(patientMsgs);
   const [filling, setFilling] = useState(false);
   const tabs = [
     // The dot says AI assist has a draft plan worth a look.
     { key: "ai" as const, label: "AI assist", icon: <Sparkles size={15} />, dot: consult.scripted && heard >= Math.ceil(TRANSCRIPT_SCRIPT.length * 0.7) && tab !== "ai", hidden: !consult.scripted },
     { key: "rx" as const, label: "Prescription", icon: <FileText size={15} /> },
+    { key: "chat" as const, label: "Chat", icon: <MessageSquareText size={15} />, dot: tab !== "chat" && patientMsgs > seenMsgs },
     { key: "patient" as const, label: "Patient", icon: <UserRound size={15} /> },
   ].filter((t) => !t.hidden);
   return (
@@ -261,6 +267,10 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
                 setTab("rx");
               }}
             />
+          ) : tab === "chat" ? (
+            <div className="-mx-4 -my-4 flex h-[calc(100%+2rem)] flex-col">
+              <ChatPanel consult={consult} me="doctor" otherName={consult.member.name} />
+            </div>
           ) : (
             <PatientTab consult={consult} />
           )}

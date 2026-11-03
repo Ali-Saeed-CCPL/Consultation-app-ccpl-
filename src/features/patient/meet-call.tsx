@@ -2,7 +2,8 @@
    chrome: a white card (title, reference, timer, fullscreen) around a dark
    video stage — the doctor as the main tile, your real camera in the corner,
    live captions along the bottom — and a control bar (mic, camera, captions,
-   leave). The transcript / details panel is a white card beside it. The
+   leave). Beside it a white card holds the in-call chat with the doctor, or
+   the consultation details. The
    fullscreen button puts the card alone on screen, dark, Meet-style.
    Camera and mic are this device's own (features/consult/use-local-media). */
 
@@ -15,6 +16,7 @@ import {
   Info,
   Lock,
   Maximize2,
+  MessageSquareText,
   Mic,
   MicOff,
   Minimize2,
@@ -27,6 +29,7 @@ import {
 } from "lucide-react";
 import { initialsOf } from "@/components/ui/avatar";
 import RxDocument, { downloadRx, rxLabels } from "@/features/consult/rx-document";
+import ChatPanel from "@/features/consult/chat-panel";
 import SelfVideo from "@/features/consult/self-video";
 import { useLocalMedia, type LocalMedia } from "@/features/consult/use-local-media";
 import { complaintText } from "@/lib/complaint";
@@ -36,7 +39,7 @@ import { useNow } from "@/lib/use-now";
 import type { Consultation, Doctor, Lang, TranscriptLine } from "@/lib/types";
 
 // No transcript panel: the transcript is stored for the record, the patient only sees the on-video captions.
-type Panel = "rx" | "details" | null;
+type Panel = "rx" | "chat" | "details" | null;
 
 export default function MeetCall({ consult, doctor, onLeave }: { consult: Consultation; doctor: Doctor; onLeave: () => void }) {
   const { t, lang } = useT();
@@ -44,7 +47,12 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
   const media = useLocalMedia();
   const [cc, setCc] = useState(true);
   const [panel, setPanel] = useState<Panel>("rx");
-  const panels = ["rx", "details"] as const;
+  const panels = ["rx", "chat", "details"] as const;
+  // Doctor messages that arrived while the chat was closed — a dot on the chat button, as in Meet.
+  const doctorMsgs = (consult.chat ?? []).filter((m) => m.from === "doctor").length;
+  const [seenMsgs, setSeenMsgs] = useState(doctorMsgs);
+  if (panel === "chat" && seenMsgs !== doctorMsgs) setSeenMsgs(doctorMsgs);
+  const unread = panel !== "chat" && doctorMsgs > seenMsgs;
   const card = useRef<HTMLElement>(null);
   const side = useRef<HTMLElement>(null);
   const { full, filled, toggle: toggleFull } = useFullscreen(card);
@@ -209,6 +217,12 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                 <RoundButton subtle on active={panel === "rx"} onClick={() => setPanel((p) => (p === "rx" ? null : "rx"))} label={t("prescriptionLabel")}>
                   <FileText size={20} />
                 </RoundButton>
+                <span className="relative">
+                  <RoundButton subtle on active={panel === "chat"} onClick={() => setPanel((p) => (p === "chat" ? null : "chat"))} label={t("chatTitle")}>
+                    <MessageSquareText size={20} />
+                  </RoundButton>
+                  {unread ? <span className="pointer-events-none absolute end-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--white)] bg-[#1a73e8]" /> : null}
+                </span>
               </>
             ) : null}
           </div>
@@ -233,8 +247,9 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                     panel === p ? "bg-[var(--white)] text-[var(--ink)] shadow-(--shadow-xs)" : "text-[var(--mute)]"
                   }`}
                 >
-                  {p === "rx" ? t("prescriptionLabel") : t("details")}
+                  {p === "rx" ? t("prescriptionLabel") : p === "chat" ? t("chatTitle") : t("details")}
                   {p === "rx" && consult.approvedAt ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" /> : null}
+                  {p === "chat" && unread ? <span className="h-1.5 w-1.5 rounded-full bg-[#1a73e8]" /> : null}
                 </button>
               ))}
             </div>
@@ -266,6 +281,13 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                 </button>
               </div>
             </>
+          ) : panel === "chat" ? (
+            <ChatPanel
+              consult={consult}
+              me="patient"
+              otherName={doctorShort}
+              labels={{ note: t("chatNote"), empty: t("chatEmpty"), placeholder: t("chatPlaceholder"), send: t("chatSend"), you: t("you") }}
+            />
           ) : (
             <div className="grid content-start gap-4 overflow-y-auto overflow-x-hidden px-5 py-4 text-[13px]">
               <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-y-2.5">
@@ -422,7 +444,6 @@ function CaptionText({ line, lang }: { line: TranscriptLine; lang: Lang }) {
     </span>
   );
 }
-
 
 function RoundButton({
   on,
