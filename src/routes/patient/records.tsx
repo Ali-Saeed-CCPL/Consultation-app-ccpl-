@@ -1,6 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
-import RecordsScreen from '@/features/patient/records-screen'
+import { Navigate, createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/patient/records')({
-  component: RecordsScreen,
+  component: () => <Navigate to="/patient/members" replace />,
 })

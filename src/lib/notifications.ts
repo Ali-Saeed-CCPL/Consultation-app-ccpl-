@@ -60,7 +60,7 @@ function forPatient(e: AuditEvent, c: Consultation | undefined, lang: Lang): App
   if (e.action === "Accepted call") return { ...base, tone: "ok", title: t("nStartedT"), message: t("nStartedM", { doctor: e.actor, name }), href: call };
   if (e.action === "Ended call") return { ...base, tone: "info", title: t("nEndedT"), message: t("nEndedM", { name }), href: call };
   if (e.action === "Prescription released to patient")
-    return { ...base, tone: "ok", title: t("nReleasedT"), message: t("nReleasedM", { name }), href: { to: "/patient/records" } };
+    return { ...base, tone: "ok", title: t("nReleasedT"), message: t("nReleasedM", { name }), href: { to: "/patient/members", search: { member: c.member.id, view: "records", visit: c.id } } };
   return null;
 }
 

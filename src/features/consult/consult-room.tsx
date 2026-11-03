@@ -10,14 +10,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { BadgeCheck, Download, FileText, MessageSquareText, Phone, PhoneOff, Printer, Sparkles, UserRound } from "lucide-react";
+import { BadgeCheck, Download, FileText, HeartPulse, MessageSquareText, Phone, PhoneOff, Printer, Sparkles } from "lucide-react";
 import PageHero from "@/components/layout/page-hero";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import Button from "@/components/ui/button";
 import StatusTag from "@/components/ui/status-tag";
 import AiAssist, { AiWave } from "@/features/consult/ai-assist";
 import ChatPanel from "@/features/consult/chat-panel";
-import { PatientPanel, PatientTab, TimelinePanel } from "@/features/consult/consult-panels";
+import { HistoryStrip, PatientPanel, PatientTab, TimelinePanel, useHealthProfile } from "@/features/consult/consult-panels";
 import NotesRxEditor, { draftProblems } from "@/features/consult/notes-rx-editor";
 import RxDocument, { downloadRx } from "@/features/consult/rx-document";
 import TranscriptPanel from "@/features/consult/transcript-panel";
@@ -152,6 +152,7 @@ function RxActions({ id }: { id: string }) {
     keeps seeing the patient while checking, editing and releasing the prescription on the right. */
 function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }) {
   const { endCall, saveDraft, approve } = usePlatform.getState();
+  const profile = useHealthProfile(consult);
   const [tried, setTried] = useState(false);
   const problems = draftProblems(consult.notes, consult.rx);
   const release = () => {
@@ -181,8 +182,9 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
     // The dot says AI assist has a draft plan worth a look.
     { key: "ai" as const, label: "AI assist", icon: <Sparkles size={15} />, dot: consult.scripted && heard >= Math.ceil(TRANSCRIPT_SCRIPT.length * 0.7) && tab !== "ai", hidden: !consult.scripted },
     { key: "rx" as const, label: "Prescription", icon: <FileText size={15} /> },
+    // Who they are, their health history and past visits — a red dot while they have allergies on record.
+    { key: "patient" as const, label: "Patient & history", icon: <HeartPulse size={15} />, dot: tab !== "patient" && Boolean(profile?.allergies?.length), danger: true },
     { key: "chat" as const, label: "Chat", icon: <MessageSquareText size={15} />, dot: tab !== "chat" && patientMsgs > seenMsgs },
-    { key: "patient" as const, label: "Patient", icon: <UserRound size={15} /> },
   ].filter((t) => !t.hidden);
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
@@ -225,7 +227,7 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
                 }`}
               >
                 {tb.icon} {tb.label}
-                {tb.dot ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> : null}
+                {tb.dot ? <span className={`h-1.5 w-1.5 rounded-full ${"danger" in tb ? "bg-[var(--red)]" : "bg-[var(--accent)]"}`} /> : null}
               </button>
             ))}
           </nav>
@@ -246,18 +248,20 @@ function LiveRoom({ consult, doctor }: { consult: Consultation; doctor: Doctor }
                   ))}
                 </ul>
               ) : null}
+              <HistoryStrip consult={consult} onOpen={() => setTab("patient")} />
               {filling ? (
                 <p className="line-in mb-3 flex items-center gap-2 rounded-(--radius-md) bg-[var(--tint)] px-3 py-2 text-[12.5px] font-semibold text-[var(--link)]">
                   <AiWave /> AI is writing the draft…
                 </p>
               ) : null}
               <div className={filling ? "ai-glow pointer-events-none rounded-(--radius-md) p-2" : ""}>
-                <NotesRxEditor notes={consult.notes} rx={consult.rx} onChange={(n, r) => saveDraft(consult.id, n, r)} />
+                <NotesRxEditor notes={consult.notes} rx={consult.rx} profile={profile} onChange={(n, r) => saveDraft(consult.id, n, r)} />
               </div>
             </>
           ) : tab === "ai" ? (
             <AiAssist
               bare
+              profile={profile}
               heard={heard}
               total={TRANSCRIPT_SCRIPT.length}
               live

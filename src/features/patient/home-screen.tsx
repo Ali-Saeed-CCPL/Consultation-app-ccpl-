@@ -7,6 +7,7 @@ import { ArrowRight, CalendarClock, CalendarDays, ClipboardList, Clock, FileChec
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import { HOUSEHOLD } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
+import { hasHistory } from "@/lib/profile";
 import { fmtDateTime, greetingKey, isClinicOpen, nextOpening, CLINIC_HOURS } from "@/lib/clinic";
 import { useT, type StringKey } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
@@ -30,6 +31,7 @@ export default function HomeScreen() {
   const consultId = useSession((s) => s.consultId);
   const consultations = usePlatform((s) => s.consultations);
   const doctors = usePlatform((s) => s.doctors);
+  const profiles = usePlatform((s) => s.profiles);
   const forceOpen = usePlatform((s) => s.forceClinicOpen);
 
   const holder = HOUSEHOLD.members.find((m) => m.relation === "self")!;
@@ -77,7 +79,7 @@ export default function HomeScreen() {
       {/* ── Quick actions ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3.5 xl:grid-cols-4">
         <QuickTile icon={<Video size={20} />} title={t("newConsult")} onClick={() => navigate({ to: "/patient/choose" })} />
-        <QuickTile icon={<FileCheck2 size={20} />} title={t("recordsTitle")} onClick={() => navigate({ to: "/patient/records" })} />
+        <QuickTile icon={<FileCheck2 size={20} />} title={t("recordsTitle")} onClick={() => navigate({ to: "/patient/members" })} />
         <QuickTile icon={<Headphones size={20} />} title={t("callSupport")} note="0800-00-2273" href="tel:0800002273" />
         <QuickTile icon={<Siren size={20} />} title={t("sosTitle")} note="1122" href="tel:1122" danger />
       </div>
@@ -126,15 +128,26 @@ export default function HomeScreen() {
         </section>
 
         {/* ── Family ─────────────────────────────────────────────────────── */}
-        <Card title={t("familyTitle")} icon={<Users size={16} />} sub={<span className="font-mono" dir="ltr">{HOUSEHOLD.policy}</span>}>
+        <Card
+          title={t("familyTitle")}
+          icon={<Users size={16} />}
+          sub={<span className="font-mono" dir="ltr">{HOUSEHOLD.policy}</span>}
+          action={
+            <Link to="/patient/members" className="text-[13px] font-semibold">
+              {t("navMembers")}
+            </Link>
+          }
+        >
           <ul className="divide-y divide-[var(--hair)]">
             {HOUSEHOLD.members.map((m) => (
-              <li key={m.id} className="flex items-center gap-3 py-2.5">
+              <li key={m.id}>
+                <Link to="/patient/members" search={{ member: m.id, view: "profile" }} className="-mx-2 flex items-center gap-3 rounded-(--radius-md) px-2 py-2.5 !no-underline hover:bg-[var(--sunken)]">
                 <Avatar initials={initialsOf(m.name)} size={34} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14px] font-semibold text-[var(--ink)]">{lang === "ur" ? m.nameUr : m.name}</div>
                   <div className="truncate text-[12px] text-[var(--mute)]">
                     {t(`rel_${m.relation}` as StringKey)} · {t("years", { n: m.age })}
+                    {hasHistory(profiles[m.id]) ? null : <span className="text-[var(--faint)]"> · {t("profileNever")}</span>}
                   </div>
                 </div>
                 <span
@@ -144,6 +157,7 @@ export default function HomeScreen() {
                 >
                   {m.coverage === "active" ? t("coverActive") : t("coverLapsed")}
                 </span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -160,7 +174,7 @@ export default function HomeScreen() {
           title={t("recentTitle")}
           icon={<ClipboardList size={16} />}
           action={
-            <Link to="/patient/records" className="text-[13px] font-semibold">
+            <Link to="/patient/members" className="text-[13px] font-semibold">
               {t("viewAll")}
             </Link>
           }
@@ -175,7 +189,8 @@ export default function HomeScreen() {
                 return (
                   <li key={c.id}>
                     <Link
-                      to="/patient/records"
+                      to="/patient/members"
+                      search={{ member: c.member.id, view: "records", visit: c.id }}
                       className="flex h-full flex-col gap-3 rounded-(--radius-lg) border border-[var(--line)] p-4 !text-inherit hover:border-[var(--sky-300)] hover:bg-[var(--sunken)]"
                     >
                       <div className="flex items-center gap-3">

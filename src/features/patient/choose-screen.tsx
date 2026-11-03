@@ -55,7 +55,7 @@ export default function ChooseScreen() {
             {t("continue")}
           </PrimaryAction>
           <Link
-            to="/patient/records"
+            to="/patient/members"
             className="inline-flex items-center justify-center gap-1.5 py-2 text-[13.5px] font-semibold text-[var(--link)] sm:order-first sm:me-auto"
           >
             <FileText size={15} /> {t("recordsTitle")}

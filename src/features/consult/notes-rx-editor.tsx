@@ -1,9 +1,12 @@
 /* Notes & prescription draft — diagnosis, plan, follow-up and the medicines. Every
    edit saves to the consultation straight away (a draft, invisible to the
-   patient until the consulting doctor approves it). */
+   patient until the consulting doctor approves it). Each medicine is checked
+   against the patient's health profile — allergies, conditions, pregnancy and
+   what they already take — and flagged; the doctor decides. */
 
-import { Plus, Trash2 } from "lucide-react";
-import type { ClinicalNotes, RxItem } from "@/lib/types";
+import { Plus, ShieldAlert, Trash2, TriangleAlert } from "lucide-react";
+import { rxWarnings } from "@/lib/profile";
+import type { ClinicalNotes, HealthProfile, RxItem } from "@/lib/types";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 export const emptyRxItem = (): RxItem => ({ id: uid(), drug: "", dose: "", frequency: "", duration: "", instructions: "" });
@@ -22,12 +25,17 @@ export default function NotesRxEditor({
   rx,
   onChange,
   disabled,
+  profile,
 }: {
   notes: ClinicalNotes;
   rx: RxItem[];
   onChange: (notes: ClinicalNotes, rx: RxItem[]) => void;
   disabled?: boolean;
+  /** The patient's health profile, for the safety check. */
+  profile?: HealthProfile;
 }) {
+  const warnings = rxWarnings(rx, profile);
+  const dangers = warnings.filter((w) => w.level === "danger").length;
   const setNote = (k: keyof ClinicalNotes, v: string) => onChange({ ...notes, [k]: v }, rx);
   const setItem = (id: string, k: keyof RxItem, v: string) => onChange(notes, rx.map((r) => (r.id === id ? { ...r, [k]: v } : r)));
 
@@ -57,6 +65,17 @@ export default function NotesRxEditor({
             </button>
           ) : null}
         </div>
+        {warnings.length ? (
+          <p
+            className={`mb-2 flex items-center gap-2 rounded-(--radius-md) px-3 py-2 text-[12.5px] font-semibold ${
+              dangers ? "bg-[var(--red-tint)] text-[var(--color-red-ink)]" : "bg-[var(--amber-tint)] text-[var(--amber-ink)]"
+            }`}
+          >
+            <ShieldAlert size={15} /> Safety check: {dangers ? `${dangers} allergy clash${dangers === 1 ? "" : "es"}` : ""}
+            {dangers && warnings.length > dangers ? " · " : ""}
+            {warnings.length > dangers ? `${warnings.length - dangers} caution${warnings.length - dangers === 1 ? "" : "s"}` : ""} — check against the health history before approving.
+          </p>
+        ) : null}
         {rx.length === 0 ? (
           <p className="rounded-(--radius-md) border border-dashed border-[var(--sky-200)] px-3 py-4 text-center text-[12.5px] text-[var(--mute)]">No medicines — advice only.</p>
         ) : (
@@ -87,6 +106,18 @@ export default function NotesRxEditor({
                     disabled={disabled}
                     onChange={(e) => setItem(r.id, "instructions", e.target.value)}
                   />
+                  {warnings
+                    .filter((w) => w.itemId === r.id)
+                    .map((w) => (
+                      <p
+                        key={w.text}
+                        className={`flex items-center gap-1.5 rounded-(--radius-sm) px-2 py-1 text-[12px] font-semibold sm:col-span-4 ${
+                          w.level === "danger" ? "bg-[var(--red-tint)] text-[var(--color-red-ink)]" : "bg-[var(--amber-tint)] text-[var(--amber-ink)]"
+                        }`}
+                      >
+                        <TriangleAlert size={13} /> {w.text}
+                      </p>
+                    ))}
                 </div>
                 {!disabled ? (
                   <button

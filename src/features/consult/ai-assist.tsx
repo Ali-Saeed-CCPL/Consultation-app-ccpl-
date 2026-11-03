@@ -7,6 +7,19 @@
 import { useEffect, useState } from "react";
 import { CornerDownLeft, ListChecks, MessageCircleQuestion, Pill, Sparkles, Stethoscope } from "lucide-react";
 import { AI_DRAFT } from "@/data/seed";
+import { allergiesText, conditionsText, medicinesText } from "@/lib/profile";
+import type { HealthProfile } from "@/lib/types";
+
+/** The scripted summary, with the allergy line taken from the patient's health
+    profile (and their conditions and regular medicines added) instead of the script. */
+export function aiSummary(profile?: HealthProfile): string[] {
+  const allergies = allergiesText(profile);
+  const allergyLine = allergies ? `Allergies on record: ${allergies}.` : profile?.allergies ? "No known drug allergies." : "Allergies not recorded — worth asking.";
+  const conditions = conditionsText(profile);
+  const medicines = medicinesText(profile);
+  const history = [conditions ? `Known: ${conditions}` : "", medicines ? `takes ${medicines}` : ""].filter(Boolean).join("; ");
+  return AI_DRAFT.summary.flatMap((line) => (/allerg/i.test(line) ? [allergyLine, ...(history ? [`${history}.`] : [])] : [line]));
+}
 
 /** Text already typed out once — switching tabs and back doesn't replay it. */
 const typed = new Set<string>();
@@ -47,6 +60,7 @@ export default function AiAssist({
   onUseDraft,
   className = "",
   bare,
+  profile,
 }: {
   /** Inside a tab: no card chrome or header — the tab already says "AI assist". */
   bare?: boolean;
@@ -57,9 +71,12 @@ export default function AiAssist({
   live: boolean;
   onUseDraft?: () => void;
   className?: string;
+  /** The patient's health profile — the summary's allergy and history lines come from it. */
+  profile?: HealthProfile;
 }) {
   const progress = Math.min(1, heard / total);
-  const summary = heard >= 3 ? AI_DRAFT.summary.slice(0, Math.max(1, Math.ceil(progress * AI_DRAFT.summary.length))) : [];
+  const all = aiSummary(profile);
+  const summary = heard >= 3 ? all.slice(0, Math.max(1, Math.ceil(progress * all.length))) : [];
   const questions = AI_DRAFT.nextQuestions.slice(0, heard >= 6 ? 3 : heard >= 2 ? 2 : 1);
   const draftReady = heard >= Math.ceil(total * 0.7);
   const [planTyped, setPlanTyped] = useState(() => typed.has(AI_DRAFT.notes.plan));

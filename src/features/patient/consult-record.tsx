@@ -4,7 +4,9 @@
    kept on the record but never shown to the patient. */
 
 import { ClipboardList, MessagesSquare } from "lucide-react";
-import { AI_DRAFT, DURATIONS, RED_FLAGS } from "@/data/seed";
+import { DURATIONS, RED_FLAGS } from "@/data/seed";
+import { aiSummary } from "@/features/consult/ai-assist";
+import { allergiesText, conditionsText, medicinesText } from "@/lib/profile";
 import { complaintText } from "@/lib/complaint";
 import { fmtDateTime, fmtDuration, fmtTime } from "@/lib/clinic";
 import { pick, useT, type StringKey } from "@/lib/i18n";
@@ -43,6 +45,13 @@ export function IntakeRecord({ consult }: { consult: Consultation }) {
     },
     { k: t("recWords"), v: s?.details ? `“${s.details}”` : "—" },
     { k: t("recRedFlags"), v: flags.length ? flags.map((f) => pick(f!, lang)).join(" · ") : t("recNoRedFlags") },
+    // The health history as confirmed for this consultation.
+    { k: t("recConditions"), v: consult.profile ? conditionsText(consult.profile, lang) || t("noneLabel") : t("notAnswered") },
+    {
+      k: t("recAllergies"),
+      v: consult.profile ? (allergiesText(consult.profile) ? <span className="font-semibold text-[var(--color-red-ink)]">{allergiesText(consult.profile)}</span> : t("noneLabel")) : t("notAnswered"),
+    },
+    { k: t("recMedicines"), v: consult.profile ? medicinesText(consult.profile) || t("noneLabel") : t("notAnswered") },
   ];
 
   return (
@@ -71,7 +80,7 @@ export function CallSummary({ consult, doctor }: { consult: Consultation; doctor
   const { t } = useT();
   // The scripted demo call has AI assist's summary; otherwise the doctor's notes stand in.
   const summary = consult.scripted
-    ? AI_DRAFT.summary
+    ? aiSummary(consult.profile)
     : [consult.notes.diagnosis, consult.notes.plan, consult.notes.followUp].filter(Boolean);
   const doctorName = doctor?.name ?? t("doctorLabel");
 

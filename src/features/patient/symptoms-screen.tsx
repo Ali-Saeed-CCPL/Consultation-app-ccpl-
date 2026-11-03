@@ -1,10 +1,17 @@
-/* Describe symptoms — guided questions in the patient's language, then the
-   red-flag check. Any red flag goes to emergency guidance, never the queue. */
+/* Describe symptoms — guided questions in the patient's language, the member's
+   health history (optional: confirmed as up to date, updated, or added — it goes
+   to the doctor with the symptoms; left out, the doctor asks on the call), then
+   the red-flag check. Any red
+   flag goes to emergency guidance, never the queue. */
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import { Brain, Check, CirclePlus, Hand, Soup, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
-import PatientStep, { PrimaryAction } from "@/features/patient/patient-step";
+import { Brain, Check, CirclePlus, Hand, Pencil, ShieldAlert, Soup, Stethoscope, Pill, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
+import Dialog from "@/components/ui/dialog";
+import PatientStep, { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step";
+import ProfileForm, { cleanProfile } from "@/features/patient/profile-form";
+import { allergiesText, conditionsText, emptyProfile, hasHistory, medicinesText } from "@/lib/profile";
+import type { HealthProfile, Member } from "@/lib/types";
 import { COMPLAINTS, DURATIONS, RED_FLAGS } from "@/data/seed";
 import { pick, useT } from "@/lib/i18n";
 import { useConsult, usePlatform } from "@/store/consult-store";
@@ -18,14 +25,15 @@ export default function SymptomsScreen() {
   const consultId = useSession((s) => s.consultId);
   const consult = useConsult(consultId ?? undefined);
   const submitSymptoms = usePlatform((s) => s.submitSymptoms);
+  const profile = usePlatform((s) => (consult ? s.profiles[consult.member.id] : undefined));
 
   // Answers live in the shared draft so the side column can summarise them as they're given.
   const draftFor = useIntakeDraft((s) => s.consultId);
   const ensureFor = useIntakeDraft((s) => s.ensureFor);
   const patch = useIntakeDraft((s) => s.patch);
-  const { complaint, other, duration, severity, details, redFlags } = useIntakeDraft((s) => s.symptoms);
+  const { complaint, other, duration, severity, details, redFlags, profileOk } = useIntakeDraft((s) => s.symptoms);
   useEffect(() => {
-    if (consult) ensureFor(consult.id, consult.symptoms);
+    if (consult) ensureFor(consult.id, consult.symptoms, Boolean(consult.profile));
   }, [consult?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- seed once per consultation
 
   // Reachable from intake, and from emergency guidance ("ticked one by mistake").
@@ -39,6 +47,7 @@ export default function SymptomsScreen() {
   const needsOther = picked.includes("other");
   const toggleComplaint = (key: string) =>
     patch({ complaint: (picked.includes(key) ? picked.filter((k) => k !== key) : [...picked, key]).join(",") });
+  // The health history is optional — it never holds up finding a doctor.
   const ready = complaint && (!needsOther || other.trim()) && duration && redFlags !== null;
   const toggleFlag = (key: string) => {
     const list = redFlags ?? [];
@@ -54,7 +63,7 @@ export default function SymptomsScreen() {
       severity,
       details: details.trim(),
       redFlags: redFlags!,
-    });
+    }, hasHistory(profile) ? profile : undefined, profileOk);
     navigate({ to: redFlags!.length ? "/patient/emergency" : "/patient/queue" });
   };
 
@@ -118,7 +127,11 @@ export default function SymptomsScreen() {
           <textarea className="field-input min-h-[56px] resize-y" value={details} onChange={(e) => patch({ details: e.target.value })} />
         </Question>
 
-        <Question n={5} label={t("qRedFlags")} hint={t("pickAny")} done={done[3]} danger className="lg:col-span-2">
+        <Question n={5} label={t("qProfile")} hint={t("optional")} done={profileOk && hasHistory(profile)} className="lg:col-span-2">
+          <HealthHistory member={consult.member} profile={profile} confirmed={profileOk} onConfirm={() => patch({ profileOk: true })} />
+        </Question>
+
+        <Question n={6} label={t("qRedFlags")} hint={t("pickAny")} done={done[3]} danger className="lg:col-span-2">
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {RED_FLAGS.map((f) => {
               const on = redFlags?.includes(f.key) ?? false;
@@ -236,5 +249,105 @@ function Chips({ options, value, onChange, multi }: { options: { key: string; la
         );
       })}
     </div>
+  );
+}
+
+/** The member's health history at intake, all optional: say it's up to date, update it, or add it.
+    Skipped, the doctor asks on the call. */
+function HealthHistory({ member, profile, confirmed, onConfirm }: { member: Member; profile?: HealthProfile; confirmed: boolean; onConfirm: () => void }) {
+  const { t, lang } = useT();
+  const saveProfile = usePlatform((s) => s.saveProfile);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<HealthProfile>(emptyProfile);
+  const has = hasHistory(profile);
+  const name = lang === "ur" ? member.nameUr : member.name;
+  const open = () => {
+    setDraft(profile ?? emptyProfile());
+    setEditing(true);
+  };
+  const save = () => {
+    saveProfile(member, cleanProfile(draft));
+    setEditing(false);
+    onConfirm();
+  };
+  const show = (v: string | null) => (v === null ? <span className="text-[var(--faint)]">{t("notAnswered")}</span> : v || <span className="text-[var(--mute)]">{t("noneLabel")}</span>);
+  const allergies = allergiesText(profile);
+  const rows = [
+    { icon: <Stethoscope size={14} />, k: t("recConditions"), v: show(conditionsText(profile, lang)) },
+    { icon: <ShieldAlert size={14} />, k: t("recAllergies"), v: allergies ? <span className="font-semibold text-[var(--color-red-ink)]">{allergies}</span> : show(allergies), danger: Boolean(allergies) },
+    { icon: <Pill size={14} />, k: t("recMedicines"), v: show(medicinesText(profile)) },
+  ];
+  if (profile?.pregnant) rows.push({ icon: <Check size={14} />, k: t("pPregnant"), v: <>{t(profile.pregnant === "yes" ? "pYes" : profile.pregnant === "no" ? "pNo" : "pUnsure")}</> });
+
+  return (
+    <>
+      {has ? (
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <dl className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
+            {rows.map((r) => (
+              <div key={r.k} className={`rounded-(--radius-md) border px-3 py-2 ${r.danger ? "border-[var(--color-danger-border)] bg-[var(--red-tint)]" : "border-[var(--line)] bg-[var(--sunken)]"}`}>
+                <dt className="flex items-center gap-1.5 text-[11.5px] font-semibold text-[var(--mute)]">
+                  {r.icon} {r.k}
+                </dt>
+                <dd className="mt-0.5 text-[13.5px] text-[var(--ink)]">{r.v}</dd>
+              </div>
+            ))}
+          </dl>
+          {confirmed ? (
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1.5 rounded-(--radius-pill) bg-[var(--green-tint)] px-3 py-1 text-[13px] font-semibold text-[var(--color-green-ink)]">
+                <Check size={14} strokeWidth={3} /> {t("confirmed")}
+              </span>
+              <button type="button" onClick={open} className="inline-flex items-center gap-1 text-[13px] font-semibold text-[var(--link)] hover:underline">
+                <Pencil size={13} /> {t("editHistory")}
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <p className="text-[13px] font-semibold text-[var(--ink)]">{t("qProfileConfirm", { name })}</p>
+              <div className="flex flex-wrap gap-2">
+                <SecondaryAction onClick={onConfirm}>
+                  <Check size={15} /> {t("stillCorrect")}
+                </SecondaryAction>
+                <SecondaryAction onClick={open}>
+                  <Pencil size={14} /> {t("somethingChanged")}
+                </SecondaryAction>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-(--radius-md) border border-[var(--line)] bg-[var(--sunken)] px-4 py-3">
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-(--radius-md) bg-[var(--tint)] text-[var(--link)]">
+            <Stethoscope size={17} />
+          </span>
+          <div className="min-w-[220px] flex-1">
+            <p className="text-[13.5px] text-[var(--ink)]">{t("qProfileMissing", { name })}</p>
+            <p className="text-[12.5px] text-[var(--mute)]">{t("qProfileSkip")}</p>
+          </div>
+          <SecondaryAction onClick={open}>{t("addHistory")}</SecondaryAction>
+        </div>
+      )}
+
+      <Dialog
+        open={editing}
+        onClose={() => setEditing(false)}
+        width={760}
+        title={`${t("qProfile")} · ${name}`}
+        footer={
+          <>
+            <SecondaryAction onClick={() => setEditing(false)}>{t("cancel")}</SecondaryAction>
+            <PrimaryAction disabled={!hasHistory(cleanProfile(draft))} onClick={save}>
+              {t("saveAndUse")}
+            </PrimaryAction>
+          </>
+        }
+      >
+        <div lang={lang} dir={lang === "ur" ? "rtl" : "ltr"} className="grid gap-4">
+          <p className="text-[13px] text-[var(--mute)]">{t("profileWhy")}</p>
+          <ProfileForm member={member} value={draft} onChange={setDraft} compact />
+        </div>
+      </Dialog>
+    </>
   );
 }

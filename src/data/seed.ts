@@ -3,7 +3,7 @@
    consultations so the portal has something in every column, and six weeks of
    finished ones (SEED_HISTORY) for the admin's performance charts. */
 
-import type { AuditEvent, Consultation, Doctor, Household, Member, TranscriptLine } from "@/lib/types";
+import type { AuditEvent, Consultation, Doctor, HealthProfile, Household, Member, TranscriptLine } from "@/lib/types";
 
 /** Prototype sign-in (features/auth/login-screen.tsx) until ccpl-api auth is wired in.
     The patient account opens the demo household; the doctor account is Dr. Ayesha Khan;
@@ -24,6 +24,28 @@ export const HOUSEHOLD: Household = {
     { id: "m-zara", name: "Zara Hamza", nameUr: "زارا حمزہ", relation: "child", age: 6, gender: "F", mrn: "CTG-100484", coverage: "active" },
     { id: "m-iqbal", name: "Muhammad Iqbal", nameUr: "محمد اقبال", relation: "parent", age: 68, gender: "M", mrn: "CTG-100485", coverage: "active" },
   ],
+};
+
+/** Health profiles the household already filled in. Sadia hasn't yet, so her first
+    consultation asks for it; the doctor's safety check flags Hamza's penicillin allergy. */
+export const SEED_PROFILES: Record<string, HealthProfile> = {
+  "m-hamza": {
+    bloodGroup: "B+", heightCm: "175", weightKg: "78", conditions: [],
+    allergies: [{ kind: "medicine", name: "Penicillin", reaction: "Rash and itching" }],
+    medicines: [], history: "", smoking: "never", family: ["diabetes"], updatedAt: Date.UTC(2026, 9, 12, 7),
+  },
+  "m-zara": {
+    bloodGroup: "B+", heightCm: "116", weightKg: "20", conditions: [{ key: "asthma", since: "2023" }],
+    allergies: [{ kind: "food", name: "Peanuts", reaction: "Swollen lips" }],
+    medicines: [{ name: "Salbutamol inhaler", dose: "2 puffs when wheezy" }], history: "", smoking: "", family: ["asthma"], updatedAt: Date.UTC(2026, 9, 12, 7),
+  },
+  "m-iqbal": {
+    bloodGroup: "O+", heightCm: "168", weightKg: "82",
+    conditions: [{ key: "diabetes", since: "2015" }, { key: "hypertension", since: "2012" }],
+    allergies: [],
+    medicines: [{ name: "Metformin 500 mg", dose: "twice a day" }, { name: "Amlodipine 5 mg", dose: "once a day" }],
+    history: "Cataract operation, left eye (2021)", smoking: "former", family: ["heart", "diabetes"], updatedAt: Date.UTC(2026, 9, 12, 7),
+  },
 };
 
 export const DOCTORS: Doctor[] = [

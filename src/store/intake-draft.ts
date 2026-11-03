@@ -15,9 +15,11 @@ export interface SymptomDraft {
   details: string;
   /** null until answered — "none of these" is an explicit answer, not a default. */
   redFlags: string[] | null;
+  /** The patient said their health profile is still right (or updated it) for this consultation. */
+  profileOk: boolean;
 }
 
-const EMPTY: SymptomDraft = { complaint: "", other: "", duration: "", severity: 4, details: "", redFlags: null };
+const EMPTY: SymptomDraft = { complaint: "", other: "", duration: "", severity: 4, details: "", redFlags: null, profileOk: false };
 
 interface IntakeDraftState {
   memberId: string | null;
@@ -26,7 +28,7 @@ interface IntakeDraftState {
   symptoms: SymptomDraft;
   setMember: (id: string | null) => void;
   /** Start (or keep) the draft for this consultation, seeded from what it already holds. */
-  ensureFor: (consultId: string, saved?: Symptoms) => void;
+  ensureFor: (consultId: string, saved?: Symptoms, profileConfirmed?: boolean) => void;
   patch: (change: Partial<SymptomDraft>) => void;
 }
 
@@ -37,12 +39,12 @@ export const useIntakeDraft = create<IntakeDraftState>()(
       consultId: null,
       symptoms: EMPTY,
       setMember: (memberId) => set({ memberId }),
-      ensureFor: (consultId, saved) => {
+      ensureFor: (consultId, saved, profileConfirmed = false) => {
         if (get().consultId === consultId) return;
         set({
           consultId,
           symptoms: saved
-            ? { complaint: saved.complaint, other: saved.other ?? "", duration: saved.duration, severity: saved.severity, details: saved.details, redFlags: saved.redFlags }
+            ? { complaint: saved.complaint, other: saved.other ?? "", duration: saved.duration, severity: saved.severity, details: saved.details, redFlags: saved.redFlags, profileOk: profileConfirmed }
             : EMPTY,
         });
       },

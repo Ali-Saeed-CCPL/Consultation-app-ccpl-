@@ -24,6 +24,7 @@ import { Route as PatientChooseRouteImport } from './routes/patient/choose'
 import { Route as PatientConsentRouteImport } from './routes/patient/consent'
 import { Route as PatientEmergencyRouteImport } from './routes/patient/emergency'
 import { Route as PatientHomeRouteImport } from './routes/patient/home'
+import { Route as PatientMembersRouteImport } from './routes/patient/members'
 import { Route as PatientQueueRouteImport } from './routes/patient/queue'
 import { Route as PatientRecordsRouteImport } from './routes/patient/records'
 import { Route as PatientSymptomsRouteImport } from './routes/patient/symptoms'
@@ -111,6 +112,11 @@ const PatientHomeRoute = PatientHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => PatientRoute,
 } as any)
+const PatientMembersRoute = PatientMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => PatientRoute,
+} as any)
 const PatientQueueRoute = PatientQueueRouteImport.update({
   id: '/queue',
   path: '/queue',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/patient/consent': typeof PatientConsentRoute
   '/patient/emergency': typeof PatientEmergencyRoute
   '/patient/home': typeof PatientHomeRoute
+  '/patient/members': typeof PatientMembersRoute
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/patient/consent': typeof PatientConsentRoute
   '/patient/emergency': typeof PatientEmergencyRoute
   '/patient/home': typeof PatientHomeRoute
+  '/patient/members': typeof PatientMembersRoute
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/patient/consent': typeof PatientConsentRoute
   '/patient/emergency': typeof PatientEmergencyRoute
   '/patient/home': typeof PatientHomeRoute
+  '/patient/members': typeof PatientMembersRoute
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/patient/consent'
     | '/patient/emergency'
     | '/patient/home'
+    | '/patient/members'
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/patient/consent'
     | '/patient/emergency'
     | '/patient/home'
+    | '/patient/members'
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/patient/consent'
     | '/patient/emergency'
     | '/patient/home'
+    | '/patient/members'
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
@@ -449,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientHomeRouteImport
       parentRoute: typeof PatientRoute
     }
+    '/patient/members': {
+      id: '/patient/members'
+      path: '/members'
+      fullPath: '/patient/members'
+      preLoaderRoute: typeof PatientMembersRouteImport
+      parentRoute: typeof PatientRoute
+    }
     '/patient/queue': {
       id: '/patient/queue'
       path: '/queue'
@@ -559,6 +578,7 @@ interface PatientRouteChildren {
   PatientConsentRoute: typeof PatientConsentRoute
   PatientEmergencyRoute: typeof PatientEmergencyRoute
   PatientHomeRoute: typeof PatientHomeRoute
+  PatientMembersRoute: typeof PatientMembersRoute
   PatientQueueRoute: typeof PatientQueueRoute
   PatientRecordsRoute: typeof PatientRecordsRoute
   PatientSymptomsRoute: typeof PatientSymptomsRoute
@@ -571,6 +591,7 @@ const PatientRouteChildren: PatientRouteChildren = {
   PatientConsentRoute: PatientConsentRoute,
   PatientEmergencyRoute: PatientEmergencyRoute,
   PatientHomeRoute: PatientHomeRoute,
+  PatientMembersRoute: PatientMembersRoute,
   PatientQueueRoute: PatientQueueRoute,
   PatientRecordsRoute: PatientRecordsRoute,
   PatientSymptomsRoute: PatientSymptomsRoute,

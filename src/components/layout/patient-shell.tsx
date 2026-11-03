@@ -1,7 +1,6 @@
 /* Patient web app shell — desktop-first, in the ERP's chrome: the brand
    hairline, a 62px white row (logo + product | clock, language, theme,
-   account) and a 44px tab band (Home · New consultation · Prescriptions &
-   records), then the page across the full width, padded like the ERP (24px). The language switch
+   account) and a 44px tab band (Home · New consultation · Members & records), then the page across the full width, padded like the ERP (24px). The language switch
    (English / اردو) flips the whole page right-to-left. On a phone the clock
    hides and the band scrolls sideways. */
 
@@ -24,7 +23,8 @@ const FLOW = ["/patient/choose", "/patient/consent", "/patient/symptoms", "/pati
 const TABS: { key: StringKey; to: string; active: (path: string) => boolean }[] = [
   { key: "navHome", to: "/patient/home", active: (p) => p === "/patient/home" },
   { key: "navNew", to: "/patient/choose", active: (p) => FLOW.includes(p) },
-  { key: "navRecords", to: "/patient/records", active: (p) => p === "/patient/records" },
+  // Each member's health profile and their prescriptions & records.
+  { key: "navMembers", to: "/patient/members", active: (p) => p === "/patient/members" || p === "/patient/records" },
 ];
 
 export default function PatientShell({ children }: { children: ReactNode }) {

@@ -21,6 +21,46 @@ export interface Member {
   coverage: "active" | "lapsed" | "unverifiable";
 }
 
+/** A long-term condition from the checklist (lib/profile.ts), or "other" in the patient's words. */
+export interface ProfileCondition {
+  key: string;
+  /** Free text for "other". */
+  name?: string;
+  /** Year it started, if they know it. */
+  since?: string;
+}
+
+export interface ProfileAllergy {
+  kind: "medicine" | "food" | "other";
+  name: string;
+  reaction: string;
+}
+
+export interface ProfileMedicine {
+  name: string;
+  dose: string;
+}
+
+/** A household member's health profile, filled in on the Members page and
+    confirmed at each consultation. The three lists are null until answered —
+    "none" is an explicit answer ([]), not a default. */
+export interface HealthProfile {
+  bloodGroup: string;
+  heightCm: string;
+  weightKg: string;
+  /** Asked of female members aged 12–50. */
+  pregnant?: "no" | "yes" | "unsure";
+  conditions: ProfileCondition[] | null;
+  allergies: ProfileAllergy[] | null;
+  medicines: ProfileMedicine[] | null;
+  /** Past operations or hospital stays, in their words. */
+  history: string;
+  smoking: "" | "never" | "former" | "current";
+  /** Condition keys that run in the family. */
+  family: string[];
+  updatedAt: number;
+}
+
 export interface Household {
   phone: string;
   policy: string;
@@ -104,6 +144,10 @@ export interface Consultation {
   createdAt: number;
   consentAt?: number;
   symptoms?: Symptoms;
+  /** The member's health profile as confirmed with the symptoms — kept as it was that day. */
+  profile?: HealthProfile;
+  /** The patient said at intake that the profile is up to date (else it's as last saved on the Members page). */
+  profileConfirmed?: boolean;
   /** The GP who took the call and wrote the prescription. */
   prescriberId?: string;
   /** Doctors who let the call ring through ("later"); not rung again for this one. */

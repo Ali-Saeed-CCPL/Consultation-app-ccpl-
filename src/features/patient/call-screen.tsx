@@ -52,7 +52,7 @@ export default function CallScreen() {
               <Download size={15} /> {t("download")}
             </SecondaryAction>
           ) : null}
-          <PrimaryAction onClick={() => navigate({ to: "/patient/records" })}>{t("viewRecords")}</PrimaryAction>
+          <PrimaryAction onClick={() => navigate({ to: "/patient/members", search: { member: consult.member.id, view: "records", visit: consult.id } })}>{t("viewRecords")}</PrimaryAction>
         </>
       }
     >

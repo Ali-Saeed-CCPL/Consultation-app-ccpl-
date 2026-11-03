@@ -11,12 +11,15 @@ export default function Dialog({
   title,
   children,
   footer,
+  width = 520,
 }: {
   open: boolean;
   onClose: () => void;
   title: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  /** Max width in px (the body scrolls when taller than the screen). */
+  width?: number;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -31,7 +34,8 @@ export default function Dialog({
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto w-[min(520px,calc(100vw-32px))] overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-0 text-[var(--ink)] shadow-(--shadow-lg) backdrop:bg-[var(--color-scrim)]"
+      style={{ width: `min(${width}px, calc(100vw - 32px))` }}
+      className="m-auto max-h-[calc(100vh-48px)] overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-0 text-[var(--ink)] shadow-(--shadow-lg) backdrop:bg-[var(--color-scrim)]"
     >
       {open ? (
         <>
@@ -41,7 +45,7 @@ export default function Dialog({
               <X size={16} />
             </button>
           </header>
-          <div className="px-5 py-5">{children}</div>
+          <div className="max-h-[calc(100vh-200px)] overflow-y-auto px-5 py-5 slim-scrollbar">{children}</div>
           {footer ? <footer className="flex justify-end gap-2 border-t border-[var(--hair)] bg-[var(--sunken)] px-5 py-3.5">{footer}</footer> : null}
         </>
       ) : null}

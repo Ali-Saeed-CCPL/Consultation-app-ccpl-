@@ -9,7 +9,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS, SEED_HISTORY } from "@/data/seed";
+import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS, SEED_HISTORY, SEED_PROFILES } from "@/data/seed";
 import { isClinicOpen } from "@/lib/clinic";
 import { complaintText } from "@/lib/complaint";
 import type {
@@ -18,6 +18,7 @@ import type {
   ClinicalNotes,
   Consultation,
   Doctor,
+  HealthProfile,
   Lang,
   Member,
   RxItem,
@@ -36,6 +37,8 @@ interface PlatformState {
       ponytail: plain demo store — ccpl-api auth replaces it; never real passwords here. */
   logins: DoctorLogin[];
   audit: AuditEvent[];
+  /** Household members' health profiles, by member id (the Members page). */
+  profiles: Record<string, HealthProfile>;
   /** Demo switch: treat the clinic as open whatever the clock says. */
   forceClinicOpen: boolean;
   /** Demo switch: a waiting patient is connected after a few seconds even with no doctor tab open. */
@@ -45,7 +48,10 @@ interface PlatformState {
   /** Opens a consultation for a household member. Everyone on the policy is eligible for now (no cover check). */
   startConsultation: (phone: string, member: Member, lang: Lang) => Consultation;
   giveConsent: (id: string) => void;
-  submitSymptoms: (id: string, symptoms: Symptoms) => void;
+  /** Sends the symptoms, with the health profile the patient confirmed (kept on the consultation as it was that day). */
+  submitSymptoms: (id: string, symptoms: Symptoms, profile?: HealthProfile, profileConfirmed?: boolean) => void;
+  /** Saves a member's health profile (Members page, or "something changed" at intake). */
+  saveProfile: (member: Member, profile: HealthProfile) => void;
   leaveQueue: (id: string) => void;
 
   // doctor side
@@ -161,6 +167,7 @@ function seed() {
     doctors: DOCTORS,
     logins: [] as DoctorLogin[],
     audit: SEED_AUDIT,
+    profiles: SEED_PROFILES,
     forceClinicOpen: true,
     // Off: a patient's call rings a doctor, who answers it (or it waits for the next free one).
     autoConnect: false,
@@ -219,18 +226,24 @@ export const usePlatform = create<PlatformState>()(
         giveConsent: (id) =>
           patch(id, { consentAt: Date.now() }, event(id, patient(id), "Consent given", "Video call + live transcript")),
 
-        submitSymptoms: (id, symptoms) => {
+        submitSymptoms: (id, symptoms, profile, profileConfirmed) => {
           if (symptoms.redFlags.length) {
             patch(
               id,
-              { symptoms, status: "emergency" },
+              { symptoms, profile, profileConfirmed, status: "emergency" },
               event(id, { actor: "Platform", actorRole: "platform" }, "Red flag — emergency guidance shown", symptoms.redFlags.join(", ")),
             );
             return;
           }
-          patch(id, { symptoms, status: "queued" }, event(id, patient(id), "Joined queue", complaintText(symptoms)));
+          patch(id, { symptoms, profile, profileConfirmed, status: "queued" }, event(id, patient(id), "Joined queue", complaintText(symptoms)));
           runAssign();
         },
+
+        saveProfile: (member, profile) =>
+          set((s) => ({
+            profiles: { ...s.profiles, [member.id]: { ...profile, updatedAt: Date.now() } },
+            audit: [event("—", { actor: member.name, actorRole: "patient" }, s.profiles[member.id] ? "Updated health profile" : "Added health profile", member.mrn), ...s.audit],
+          })),
 
         leaveQueue: (id) => {
           patch(id, { status: "closed", closedAt: Date.now(), prescriberId: undefined }, event(id, patient(id), "Left the queue"));
@@ -370,18 +383,20 @@ export const usePlatform = create<PlatformState>()(
       // v3 dropped approval after the call: any consultation left waiting ("drafting") is released as it stands.
       // v6 added six weeks of finished consultations (SEED_HISTORY) for the admin's charts; added, not re-seeded.
       // v9 cleared the test activity once (doctors and logins kept); v10 adds the v6 history to data already on v9.
-      version: 10,
+      // v11 added members' health profiles (seeded; any already saved are kept).
+      version: 11,
       migrate: (persisted, from) => {
         if (from < 2) return seed() as PlatformState;
         // v9: a clean slate for testing — every test call, queue entry and audit row goes; the
         // demo consultations come back as seeded. Doctors and their logins are kept.
-        if (from < 9) return { ...(persisted as PlatformState), ...activity(), autoConnect: false } as PlatformState;
+        if (from < 9) return { ...(persisted as PlatformState), ...activity(), profiles: SEED_PROFILES, autoConnect: false } as PlatformState;
         const s = persisted as PlatformState;
         const now = Date.now();
         const have = new Set(s.consultations.map((c) => c.id));
         const history = from < 10 ? SEED_HISTORY.filter((c) => !have.has(c.id)) : [];
         return {
           ...s,
+          profiles: { ...SEED_PROFILES, ...s.profiles },
           // v7: the demo auto-answer is off — it answered calls before the rung doctor could.
           autoConnect: false,
           // v8: the old seed's endless call (DC-24117) and long-waiting patient (DC-24118) kept
@@ -403,6 +418,7 @@ export const usePlatform = create<PlatformState>()(
         doctors: s.doctors,
         logins: s.logins,
         audit: s.audit,
+        profiles: s.profiles,
         forceClinicOpen: s.forceClinicOpen,
         autoConnect: s.autoConnect,
       }),
