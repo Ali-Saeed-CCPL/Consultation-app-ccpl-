@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import ConsultationsScreen from '@/features/portal/consultations-screen'
+import AdminConsultationsScreen from '@/features/admin/admin-consultations-screen'
 
-// Admin consultations are one records list (no live / triage views).
+// Admin consultations are one records list with filters (no live / triage views).
 export const Route = createFileRoute('/admin/consultations/')({
-  component: () => <ConsultationsScreen admin view="history" />,
+  component: AdminConsultationsScreen,
 })

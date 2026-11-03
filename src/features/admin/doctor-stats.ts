@@ -21,7 +21,8 @@ export function doctorStats(consultations: Consultation[], doctorId: string): Do
   return {
     received: mine.length,
     patients: new Set(mine.map((c) => c.member.mrn)).size,
-    released: mine.filter((c) => c.status === "approved" || c.status === "closed").length,
+    // A finished consultation that ended with advice only has no prescription to count.
+    released: mine.filter((c) => (c.status === "approved" || c.status === "closed") && c.rxVersion > 0).length,
     callMs,
     avgCallMs: ended.length ? callMs / ended.length : 0,
     avgWaitMs: waits.length ? waits.reduce((a, b) => a + b, 0) / waits.length : 0,
