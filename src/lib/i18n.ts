@@ -183,7 +183,7 @@ const STRINGS = {
   queueRinging: { en: "Calling {doctor}…", ur: "{doctor} کو کال کی جا رہی ہے…" },
   queueRingingSub: { en: "Keep this page open — the video call starts as soon as the doctor answers.", ur: "یہ صفحہ کھلا رکھیں — ڈاکٹر کے جواب دیتے ہی ویڈیو کال شروع ہو جائے گی۔" },
   queueWaiting: { en: "All doctors are busy", ur: "تمام ڈاکٹر مصروف ہیں" },
-  queueWaitingSub: { en: "You're number {n} in line. You can wait here or we can call you back.", ur: "آپ قطار میں {n} نمبر پر ہیں۔ آپ یہاں انتظار کر سکتے ہیں یا ہم آپ کو واپس کال کر سکتے ہیں۔" },
+  queueWaitingSub: { en: "You're number {n} in line. You'll be connected to the next free doctor.", ur: "آپ قطار میں {n} نمبر پر ہیں۔ اگلے فارغ ڈاکٹر سے آپ کو جوڑ دیا جائے گا۔" },
   queueClosed: { en: "The clinic is closed right now", ur: "کلینک ابھی بند ہے" },
   queueClosedSub: { en: "GPs are on call Mon–Fri, 9 AM–6 PM. You'll be connected when the clinic opens.", ur: "ڈاکٹر پیر تا جمعہ، صبح 9 سے شام 6 بجے تک دستیاب ہیں۔ کلینک کھلنے پر آپ کو جوڑ دیا جائے گا۔" },
   keepWaiting: { en: "Waiting — you'll be connected automatically", ur: "انتظار جاری — آپ خود بخود جڑ جائیں گے" },

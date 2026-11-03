@@ -3,9 +3,9 @@
                        patient home;
      status card       whether calls reach you (with the switch), or the call that is
                        with you now, and the clock;
-     consultations     yours — today's first, then earlier ones — with diagnosis, medicines, status;
+     today             your consultations today, five to a page (earlier ones are in History);
      live queue        patients waiting, as cards with how long they have waited;
-     follow-ups due    patients due back, from the follow-up written on their prescription.
+     follow-ups due    patients due back, from the follow-up written on their prescription, two to a page.
    Clinic-wide figures (doctors on duty, all consultations) are on the admin overview
    (features/admin/admin-dashboard.tsx). */
 
@@ -13,6 +13,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarClock, Clock, Hourglass, Inbox, PhoneIncoming, Pill, Power, Stethoscope, Timer, Users } from "lucide-react";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
+import Pager, { usePage } from "@/components/ui/pager";
 import Section from "@/components/ui/section";
 import StatusTag from "@/components/ui/status-tag";
 import { DURATIONS } from "@/data/seed";
@@ -52,12 +53,9 @@ export default function DashboardScreen() {
   // Today's own consultations, newest first — the doctor's day log.
   const dayOf = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { timeZone: CLINIC_HOURS.tz });
   const myToday = mySeen.filter((c) => dayOf(c.callStartedAt!) === dayOf(now)).sort((a, b) => b.callStartedAt! - a.callStartedAt!);
-  // Earlier ones continue the list below today's, up to eight rows in all.
-  const myEarlier = mySeen
-    .filter((c) => dayOf(c.callStartedAt!) !== dayOf(now))
-    .sort((a, b) => b.callStartedAt! - a.callStartedAt!)
-    .slice(0, Math.max(0, 8 - myToday.length));
-  const followUps = followUpsDue(myReleased, now);
+  // Earlier visits are on the History page; here, today's only, page by page.
+  const consultPage = usePage(myToday, 5);
+  const followUpPage = usePage(followUpsDue(myReleased, now), 2);
   const myCall = consultations.find((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === doctor.id);
 
   const stats = [
@@ -103,7 +101,7 @@ export default function DashboardScreen() {
 
       <div className="mt-4 grid gap-5 xl:min-h-[calc(100dvh-419px)] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Section
-          title="Your consultations"
+          title="Today's consultations"
           sub={`${myToday.length} call${myToday.length === 1 ? "" : "s"} · ${myToday.filter((c) => c.approvedAt).length} prescription${myToday.filter((c) => c.approvedAt).length === 1 ? "" : "s"} released`}
           className="flex flex-col"
           bodyClassName="flex flex-1 flex-col"
@@ -113,8 +111,8 @@ export default function DashboardScreen() {
             </Link>
           }
         >
-          {myToday.length + myEarlier.length === 0 ? (
-            <Empty icon={<Pill size={18} />}>No consultations yet.</Empty>
+          {myToday.length === 0 ? (
+            <Empty icon={<Pill size={18} />}>No consultations yet today.</Empty>
           ) : (
             <div className="flex-1 overflow-hidden rounded-(--radius-lg) border border-[var(--line)]">
               <div className="grid grid-cols-[92px_minmax(0,1.1fr)_minmax(0,1.4fr)_92px_150px] gap-3 border-b border-[var(--line)] bg-[var(--sunken)] px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[var(--body)]">
@@ -125,15 +123,13 @@ export default function DashboardScreen() {
                 <span>Status</span>
               </div>
               <ul className="divide-y divide-[var(--hair)]">
-                <GroupRow label="Today" n={myToday.length} />
-                {myToday.length ? myToday.map((c) => <TodayRow key={c.id} consult={c} now={now} />) : <li className="px-4 py-3 text-[13px] text-[var(--body)]">No calls yet today.</li>}
-                {myEarlier.length ? <GroupRow label="Earlier" n={myEarlier.length} /> : null}
-                {myEarlier.map((c) => (
-                  <TodayRow key={c.id} consult={c} now={now} dated />
+                {consultPage.rows.map((c) => (
+                  <TodayRow key={c.id} consult={c} now={now} />
                 ))}
               </ul>
             </div>
           )}
+          <Pager {...consultPage} />
         </Section>
 
         <div className="grid grid-rows-[auto_1fr] gap-5">
@@ -158,15 +154,16 @@ export default function DashboardScreen() {
         </Section>
 
         <Section title="Follow-ups due" sub="Next 3 days, from the follow-up on each prescription">
-          {followUps.length === 0 ? (
+          {followUpPage.total === 0 ? (
             <Empty icon={<CalendarClock size={18} />}>No follow-ups in the next 3 days.</Empty>
           ) : (
             <ul className="grid gap-2.5">
-              {followUps.map((fu) => (
+              {followUpPage.rows.map((fu) => (
                 <FollowUpCard key={fu.consult.id} {...fu} now={now} />
               ))}
             </ul>
           )}
+          <Pager {...followUpPage} />
         </Section>
         </div>
       </div>
@@ -280,7 +277,7 @@ function QueueCard({ consult: c, now }: { consult: Consultation; now: number }) 
 
 /** One of today's consultations: when and how long, who and what for, the diagnosis,
     the medicines, and where it stands. Opens the record. */
-function TodayRow({ consult: c, now, dated }: { consult: Consultation; now: number; dated?: boolean }) {
+function TodayRow({ consult: c, now }: { consult: Consultation; now: number }) {
   const live = !c.callEndedAt;
   const length = span((c.callEndedAt ?? now) - c.callStartedAt!);
   return (
@@ -291,9 +288,7 @@ function TodayRow({ consult: c, now, dated }: { consult: Consultation; now: numb
         className="group grid grid-cols-[92px_minmax(0,1.1fr)_minmax(0,1.4fr)_92px_150px] items-center gap-3 px-4 py-3 !text-inherit hover:bg-[var(--sunken)]"
       >
         <span>
-          <span className="block font-mono text-[13px] font-semibold text-[var(--ink)]">
-            {dated ? new Date(c.callStartedAt!).toLocaleDateString("en-PK", { timeZone: CLINIC_HOURS.tz, day: "numeric", month: "short" }) : fmtTime(c.callStartedAt!)}
-          </span>
+          <span className="block font-mono text-[13px] font-semibold text-[var(--ink)]">{fmtTime(c.callStartedAt!)}</span>
           <span className="inline-flex items-center gap-1 font-mono text-[12px] text-[var(--body)]">
             <Clock size={11} /> {length}
           </span>
@@ -322,14 +317,6 @@ function TodayRow({ consult: c, now, dated }: { consult: Consultation; now: numb
   );
 }
 
-function GroupRow({ label, n }: { label: string; n: number }) {
-  return (
-    <li className="flex items-center gap-2 bg-[var(--sunken)] px-4 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[var(--body)]">
-      {label} <span className="font-mono text-[var(--mute)]">{n}</span>
-    </li>
-  );
-}
-
 const DAY = 86_400_000;
 /** "Review in 3 days…", "Teleconsult in 2 weeks…" → when that falls due, from the release.
     Only those due from now to three days ahead are listed.
@@ -345,11 +332,10 @@ function followUpsDue(released: Consultation[], now: number) {
       return { consult: c, due };
     })
     .filter((x): x is { consult: Consultation; due: number } => Boolean(x) && x!.due >= now && x!.due <= now + FOLLOW_UP_WINDOW)
-    .sort((a, b) => a.due - b.due)
-    .slice(0, 4);
+    .sort((a, b) => a.due - b.due);
 }
 
-/** A patient due a follow-up: when, and the note you wrote. Amber when due within a day, red once overdue. */
+/** A patient due a follow-up: when, and the note you wrote (diagnosis on hover). Amber when due within a day, red once overdue. */
 function FollowUpCard({ consult: c, due, now }: { consult: Consultation; due: number; now: number }) {
   const days = Math.round((due - now) / DAY);
   const when = days < 0 ? `${-days}d overdue` : days === 0 ? "Due today" : `In ${days} day${days === 1 ? "" : "s"}`;
@@ -367,8 +353,7 @@ function FollowUpCard({ consult: c, due, now }: { consult: Consultation; due: nu
             <span className="truncate text-[14px] font-semibold text-[var(--ink)]">{c.member.name}</span>
             <span className={`flex-shrink-0 rounded-(--radius-pill) px-2.5 py-0.5 text-[12px] font-bold ${tone}`}>{when}</span>
           </span>
-          <span className="block truncate text-[12.5px] text-[var(--body)]">{c.notes.diagnosis || "—"}</span>
-          <span className="mt-0.5 line-clamp-1 text-[12.5px] text-[var(--mute)]" title={c.notes.followUp}>
+          <span className="mt-0.5 line-clamp-1 text-[12.5px] text-[var(--body)]" title={`${c.notes.diagnosis} — ${c.notes.followUp}`}>
             {c.notes.followUp}
           </span>
         </span>

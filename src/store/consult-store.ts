@@ -147,6 +147,14 @@ function event(consultId: string, who: Actor, action: string, detail?: string): 
   return { id: uid(), at: Date.now(), consultId, ...who, action, detail };
 }
 
+/** The two old seed consultations that never moved: Bilal's call that never ended, Nadia waiting since the seed. */
+const STALE_SEED = ["DC-24117", "DC-24118"];
+const isStaleSeed = (c: Consultation) =>
+  (c.id === "DC-24117" && c.status === "in_call" && !c.rx.length) || (c.id === "DC-24118" && (c.status === "queued" || c.status === "ringing"));
+
+/** Consultations and audit as seeded: the demo activity, without the roster. */
+const activity = () => ({ consultations: SEED_CONSULTATIONS, audit: SEED_AUDIT });
+
 function seed() {
   return {
     consultations: SEED_CONSULTATIONS,
@@ -154,7 +162,8 @@ function seed() {
     logins: [] as DoctorLogin[],
     audit: SEED_AUDIT,
     forceClinicOpen: true,
-    autoConnect: true,
+    // Off: a patient's call rings a doctor, who answers it (or it waits for the next free one).
+    autoConnect: false,
   };
 }
 
@@ -351,21 +360,30 @@ export const usePlatform = create<PlatformState>()(
 
         setAutoConnect: (autoConnect) => set({ autoConnect }),
 
-        resetDemo: () => set(seed()),
+        // Keeps the doctors and the logins the admin made — only the demo activity starts over.
+        resetDemo: () => set(activity()),
       };
     },
     {
       name: STORE_KEY,
       // v2 dropped the second-doctor review (in_review / changes); older demo data is re-seeded.
       // v3 dropped approval after the call: any consultation left waiting ("drafting") is released as it stands.
-      version: 5,
+      version: 9,
       migrate: (persisted, from) => {
         if (from < 2) return seed() as PlatformState;
+        // v9: a clean slate for testing — every test call, queue entry and audit row goes; the
+        // demo consultations come back as seeded. Doctors and their logins are kept.
+        if (from < 9) return { ...(persisted as PlatformState), ...activity(), autoConnect: false } as PlatformState;
         const s = persisted as PlatformState;
         const now = Date.now();
         return {
           ...s,
-          consultations: s.consultations.map((c) =>
+          // v7: the demo auto-answer is off — it answered calls before the rung doctor could.
+          autoConnect: false,
+          // v8: the old seed's endless call (DC-24117) and long-waiting patient (DC-24118) kept
+          // every doctor busy, so a new call always queued behind them.
+          audit: s.audit.filter((e) => !(from < 8 && STALE_SEED.includes(e.consultId))),
+          consultations: s.consultations.filter((c) => !(from < 8 && isStaleSeed(c))).map((c) =>
             c.status === "drafting"
               ? { ...c, status: "approved", approvedAt: c.callEndedAt ?? now, rxVersion: Math.max(1, c.rxVersion), aiDrafted: false }
               : // v5: there are no call backs — patients call in and wait for the next free GP.

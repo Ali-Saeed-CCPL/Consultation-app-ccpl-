@@ -114,38 +114,6 @@ const emptyNotes = { diagnosis: "", plan: "", followUp: "" };
 
 export const SEED_CONSULTATIONS: Consultation[] = [
   {
-    id: "DC-24117",
-    householdPhone: "03211112222",
-    member: other("x-usman", "Usman Tariq", "عثمان طارق", 41, "M", "CTG-208114"),
-    lang: "ur",
-    status: "in_call",
-    createdAt: ago(16),
-    consentAt: ago(15),
-    symptoms: { complaint: "stomach", duration: "1-3d", severity: 5, details: "Loose motions since yesterday, some cramps.", redFlags: [] },
-    prescriberId: "d-bilal",
-    callStartedAt: ago(9),
-    declinedBy: [],
-    transcript: [],
-    notes: emptyNotes,
-    rx: [],
-    rxVersion: 0,
-  },
-  {
-    id: "DC-24118",
-    householdPhone: "03334445555",
-    member: other("x-nadia", "Nadia Perveen", "نادیہ پروین", 27, "F", "CTG-311902"),
-    lang: "en",
-    status: "queued",
-    createdAt: ago(48),
-    consentAt: ago(48),
-    symptoms: { complaint: "skin", duration: "4-7d", severity: 3, details: "Itchy rash on both forearms.", redFlags: [] },
-    declinedBy: [],
-    transcript: [],
-    notes: emptyNotes,
-    rx: [],
-    rxVersion: 0,
-  },
-  {
     id: "DC-24109",
     householdPhone: "03007778888",
     member: other("x-faisal", "Faisal Qureshi", "فیصل قریشی", 52, "M", "CTG-118734"),
@@ -267,7 +235,5 @@ export const SEED_AUDIT: AuditEvent[] = [
   { id: "a5", at: ago(94), consultId: "DC-24104", actor: "Platform", actorRole: "platform", action: "Red flag — emergency guidance shown", detail: "Chest pain or pressure" },
   { id: "a6", at: ago(44), consultId: "DC-24109", actor: "AI assist", actorRole: "ai", action: "Drafted notes & prescription", detail: "From the call transcript — for the doctor to check" },
   { id: "a7", at: ago(25), consultId: "DC-24112", actor: "AI assist", actorRole: "ai", action: "Drafted notes & prescription", detail: "From the call transcript — for the doctor to check" },
-  { id: "a8", at: ago(48), consultId: "DC-24118", actor: "Nadia Perveen", actorRole: "patient", action: "Joined queue", detail: "Skin rash" },
-  { id: "a9", at: ago(9), consultId: "DC-24117", actor: "Dr. Bilal Ahmed", actorRole: "doctor", action: "Accepted call", detail: "Video consult started" },
 ];
 
