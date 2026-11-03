@@ -51,10 +51,13 @@ export default function ConsultationsScreen({ view, admin = false }: { view: Vie
   const title = admin ? "Consultation records" : meta.title;
 
   const rows = consultations
-    .filter((c) => meta.filter(c) && (admin || !isOthersActive(c, doctor!.id)))
+    // A doctor's history is their own consultations; the admin sees every doctor's.
+    .filter((c) => meta.filter(c) && (admin || (history ? c.prescriberId === doctor!.id : !isOthersActive(c, doctor!.id))))
     .filter((c) => !history || !from || (dayOf(c.createdAt) >= from && dayOf(c.createdAt) <= to))
     .sort((a, b) => b.createdAt - a.createdAt);
   const [ty, tm, td] = dayOf(Date.now()).split("-").map(Number);
+  // In a doctor's own history the Doctor column would always be them.
+  const showDoctor = admin || !history;
 
   return (
     <>
@@ -78,7 +81,7 @@ export default function ConsultationsScreen({ view, admin = false }: { view: Vie
         ) : null}
         <Table
           // History is one plain record, not sorted into statuses — no Status column there.
-          head={["Ref", "Patient", "Complaint", "Language", "Doctor", "Started", ...(history ? [] : ["Status"])]}
+          head={["Ref", "Patient", "Complaint", "Language", ...(showDoctor ? ["Doctor"] : []), "Started", ...(history ? [] : ["Status"])]}
           empty={rows.length ? null : <EmptyRow>{history && from ?"No consultations in this period." : "Nothing here right now."}</EmptyRow>}
         >
           {rows.map((c) => (
@@ -98,7 +101,7 @@ export default function ConsultationsScreen({ view, admin = false }: { view: Vie
                   : complaintText(c.symptoms) || "—"}
               </Cell>
               <Cell>{c.lang === "ur" ? "Urdu" : "English"}</Cell>
-              <Cell>{doctors.find((d) => d.id === c.prescriberId)?.name ?? "—"}</Cell>
+              {showDoctor ? <Cell>{doctors.find((d) => d.id === c.prescriberId)?.name ?? "—"}</Cell> : null}
               <Cell mono>{fmtDateTime(c.createdAt)}</Cell>
               {history ? null : (
                 <Cell>
