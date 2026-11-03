@@ -1,6 +1,7 @@
 /* Demo data. Stands in for ccpl-api + Centegy HIS until the backend lands:
-   one household that signs in by phone, three doctors, and a morning's worth
-   of consultations so the portal has something in every column. */
+   one household that signs in by phone, three doctors, a morning's worth of
+   consultations so the portal has something in every column, and six weeks of
+   finished ones (SEED_HISTORY) for the admin's performance charts. */
 
 import type { AuditEvent, Consultation, Doctor, Household, Member, TranscriptLine } from "@/lib/types";
 
@@ -259,6 +260,77 @@ export const SEED_CONSULTATIONS: Consultation[] = [
   },
 ];
 
+/** Six weeks of finished consultations before today, so the admin's doctor
+    performance charts have a history. Deterministic (seeded random): weekdays
+    only, inside clinic hours, each doctor at their own pace. Ids start "DC-H". */
+export const SEED_HISTORY: Consultation[] = (() => {
+  let seedN = 20261103;
+  const rand = () => {
+    seedN = (seedN * 1664525 + 1013904223) % 4294967296;
+    return seedN / 4294967296;
+  };
+  const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
+  const PATIENTS: [string, string, "M" | "F"][] = [
+    ["Ali Raza", "علی رضا", "M"], ["Fatima Noor", "فاطمہ نور", "F"], ["Hassan Javed", "حسن جاوید", "M"], ["Ayesha Siddiqa", "عائشہ صدیقہ", "F"],
+    ["Bilal Hussain", "بلال حسین", "M"], ["Mariam Khalid", "مریم خالد", "F"], ["Usman Ghani", "عثمان غنی", "M"], ["Sana Tariq", "ثنا طارق", "F"],
+    ["Imran Shah", "عمران شاہ", "M"], ["Zainab Akhtar", "زینب اختر", "F"], ["Kashif Mehmood", "کاشف محمود", "M"], ["Nida Farooq", "ندا فاروق", "F"],
+  ];
+  const CASES = [
+    { complaint: "fever", dx: "Viral upper respiratory infection (J06.9)", drug: "Paracetamol 500 mg tablet" },
+    { complaint: "cough", dx: "Acute bronchitis (J20.9)", drug: "Dextromethorphan syrup" },
+    { complaint: "stomach", dx: "Acute gastroenteritis (A09)", drug: "ORS sachets" },
+    { complaint: "skin", dx: "Contact dermatitis (L25.9)", drug: "Hydrocortisone 1% cream" },
+    { complaint: "headache", dx: "Tension-type headache (G44.2)", drug: "Ibuprofen 400 mg tablet" },
+  ];
+  // Consultations per weekday: Ayesha busiest, Bilal steady, Sana part-time.
+  const PACE: [string, number][] = [["d-ayesha", 3.2], ["d-bilal", 2.4], ["d-sana", 1.1]];
+  const DAY = 86_400_000;
+  const out: Consultation[] = [];
+  let n = 0;
+  for (let d = 42; d >= 1; d--) {
+    // Clinic day in Pakistan time (UTC+5): 9 AM there is 04:00 UTC.
+    const day = new Date(now - d * DAY);
+    const start = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 4, 0);
+    const weekday = new Date(start + 5 * 3_600_000).getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    for (const [doctorId, pace] of PACE) {
+      const count = Math.max(0, Math.round(pace + (rand() - 0.5) * 2.4));
+      for (let i = 0; i < count; i++) {
+        n += 1;
+        const [name, nameUr, gender] = pick(PATIENTS);
+        const c = pick(CASES);
+        const createdAt = start + Math.floor(rand() * 8.5 * 60) * MIN;
+        const wait = (2 + Math.floor(rand() * (doctorId === "d-sana" ? 18 : 10))) * MIN;
+        const callStartedAt = createdAt + MIN + wait;
+        const callEndedAt = callStartedAt + (6 + Math.floor(rand() * 13)) * MIN;
+        const prescribed = rand() > (doctorId === "d-bilal" ? 0.18 : 0.08);
+        out.push({
+          id: `DC-H${String(n).padStart(4, "0")}`,
+          householdPhone: `0300${String(1000000 + n).slice(-7)}`,
+          member: other(`x-h${n}`, name, nameUr, 22 + Math.floor(rand() * 50), gender, `CTG-${String(500000 + n)}`),
+          lang: rand() > 0.5 ? "ur" : "en",
+          // Every one is finished; some ended with advice only (no prescription).
+          status: "closed",
+          createdAt,
+          consentAt: createdAt + MIN,
+          symptoms: { complaint: c.complaint, duration: "1-3d", severity: 3 + Math.floor(rand() * 5), details: "", redFlags: [] },
+          prescriberId: doctorId,
+          declinedBy: [],
+          callStartedAt,
+          callEndedAt,
+          approvedAt: callEndedAt,
+          closedAt: callEndedAt,
+          transcript: [],
+          notes: prescribed ? { diagnosis: c.dx, plan: "As discussed on the call.", followUp: "If no better in 3 days." } : emptyNotes,
+          rx: prescribed ? [{ id: "rx1", drug: c.drug, dose: "As directed", frequency: "As directed", duration: "5 days", instructions: "" }] : [],
+          rxVersion: prescribed ? 1 : 0,
+        });
+      }
+    }
+  }
+  return out;
+})();
+
 export const SEED_AUDIT: AuditEvent[] = [
   { id: "a1", at: ago(240), consultId: "DC-24096", actor: "Maria Fernandes", actorRole: "patient", action: "Signed in", detail: "Phone OTP verified" },
   { id: "a2", at: ago(205), consultId: "DC-24096", actor: "Dr. Bilal Ahmed", actorRole: "doctor", action: "Approved prescription v1", detail: "AI draft checked by the doctor" },
@@ -270,4 +342,5 @@ export const SEED_AUDIT: AuditEvent[] = [
   { id: "a8", at: ago(48), consultId: "DC-24118", actor: "Nadia Perveen", actorRole: "patient", action: "Joined queue", detail: "Skin rash" },
   { id: "a9", at: ago(9), consultId: "DC-24117", actor: "Dr. Bilal Ahmed", actorRole: "doctor", action: "Accepted call", detail: "Video consult started" },
 ];
-
+
+

@@ -9,7 +9,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS } from "@/data/seed";
+import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS, SEED_HISTORY } from "@/data/seed";
 import { isClinicOpen } from "@/lib/clinic";
 import { complaintText } from "@/lib/complaint";
 import type {
@@ -149,7 +149,7 @@ function event(consultId: string, who: Actor, action: string, detail?: string): 
 
 function seed() {
   return {
-    consultations: SEED_CONSULTATIONS,
+    consultations: [...SEED_CONSULTATIONS, ...SEED_HISTORY],
     doctors: DOCTORS,
     logins: [] as DoctorLogin[],
     audit: SEED_AUDIT,
@@ -358,14 +358,17 @@ export const usePlatform = create<PlatformState>()(
       name: STORE_KEY,
       // v2 dropped the second-doctor review (in_review / changes); older demo data is re-seeded.
       // v3 dropped approval after the call: any consultation left waiting ("drafting") is released as it stands.
-      version: 5,
+      // v6 added six weeks of finished consultations (SEED_HISTORY) for the admin's charts; added, not re-seeded.
+      version: 6,
       migrate: (persisted, from) => {
         if (from < 2) return seed() as PlatformState;
         const s = persisted as PlatformState;
         const now = Date.now();
+        const have = new Set(s.consultations.map((c) => c.id));
+        const history = from < 6 ? SEED_HISTORY.filter((c) => !have.has(c.id)) : [];
         return {
           ...s,
-          consultations: s.consultations.map((c) =>
+          consultations: [...s.consultations, ...history].map((c) =>
             c.status === "drafting"
               ? { ...c, status: "approved", approvedAt: c.callEndedAt ?? now, rxVersion: Math.max(1, c.rxVersion), aiDrafted: false }
               : // v5: there are no call backs — patients call in and wait for the next free GP.

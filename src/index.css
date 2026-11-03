@@ -471,3 +471,50 @@ html,.rail,.content{scrollbar-width:thin;scrollbar-color:#dde8f5 transparent}
   background: currentColor;
   animation: live-dot 1.2s ease-in-out infinite;
 }
+
+/* Admin portal hero — the patient home's brand band, in a light clinical green
+   (features/admin/admin-dashboard.tsx). Dark text on light green; deep green in dark mode. */
+.surface-admin {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #e6f5ec 0%, #d2eedd 50%, #bfe5cf 100%);
+  border: 1px solid #b4dcc4;
+  box-shadow: 0 10px 30px -18px rgba(21, 96, 63, 0.45);
+  color: #12452f;
+}
+.surface-admin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(110% 80% at 100% 0%, rgba(255, 255, 255, 0.6) 0%, transparent 55%),
+    radial-gradient(70% 60% at 0% 100%, rgba(47, 158, 102, 0.16) 0%, transparent 60%);
+}
+.surface-admin > * { position: relative; }
+:root[data-theme="dark"] .surface-admin {
+  background: linear-gradient(135deg, #10291c 0%, #133524 55%, #17422c 100%);
+  border-color: #1f4d35;
+  color: #cdeedb;
+}
+:root[data-theme="dark"] .surface-admin::before {
+  background:
+    radial-gradient(110% 80% at 100% 0%, rgba(127, 214, 168, 0.12) 0%, transparent 55%),
+    radial-gradient(70% 60% at 0% 100%, rgba(0, 0, 0, 0.25) 0%, transparent 60%);
+}
+
+/* Chart series colours (the dataviz skill's validated categorical order) for the
+   admin's doctor charts. A doctor keeps their slot whatever the filters — colour
+   follows the doctor, never their rank. Dark steps are their own, not a flip. */
+.viz-root {
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --viz-grid: #e6ebf3;
+  --viz-axis: #c9d3e3;
+}
+:root[data-theme="dark"] .viz-root {
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+  --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+  --viz-grid: #1f2a40;
+  --viz-axis: #2c3a55;
+}
