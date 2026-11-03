@@ -1,32 +1,28 @@
-/* Portal dashboard — the ERP wallboard's layout for the clinic: a KPI row,
-   the consultation pipeline (bars + side stats, like "Enrollment pipeline"),
-   then live queue, needs attention and doctors on duty. Supplies its own
-   header, as the ERP dashboard does. */
+/* Doctor dashboard — the signed-in doctor's own work: their numbers, today's
+   consultation progress, the live queue and what they released recently.
+   Clinic-wide figures (progress, scheduled calls, doctors on duty) are on the
+   admin overview (features/admin/admin-dashboard.tsx). */
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Clock, PhoneIncoming } from "lucide-react";
+import { ArrowRight, PhoneIncoming } from "lucide-react";
 import KpiTile from "@/components/common/kpi-tile";
-import LiveCalls from "@/features/portal/live-calls";
-import ScheduledCalls from "@/features/portal/scheduled-calls";
+import ConsultProgress from "@/features/portal/consult-progress";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
-import Button from "@/components/ui/button";
 import Section from "@/components/ui/section";
 import StatusTag from "@/components/ui/status-tag";
 import { complaintText } from "@/lib/complaint";
-import { CLINIC_HOURS, fmtDuration, fmtTime, greetingKey, isOthersActive, minutesAgo } from "@/lib/clinic";
+import { CLINIC_HOURS, fmtDuration, greetingKey, isOthersActive, minutesAgo } from "@/lib/clinic";
 import LiveClock from "@/components/common/live-clock";
 import { usePlatform } from "@/store/consult-store";
 import { useCurrentDoctor } from "@/store/use-current-doctor";
-import type { Consultation } from "@/lib/types";
+import type { Consultation, Doctor } from "@/lib/types";
 
 const complaintLabel = (c: Consultation) => complaintText(c.symptoms) || "—";
 
 export default function DashboardScreen() {
   const doctor = useCurrentDoctor()!;
   const consultations = usePlatform((s) => s.consultations);
-  const doctors = usePlatform((s) => s.doctors);
-  const { takeNext, setAvailability } = usePlatform.getState();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 15_000);
@@ -38,108 +34,48 @@ export default function DashboardScreen() {
   const inCall = by("in_call");
   // The live queue panel lists only what this doctor can act on: waiting patients and their own call.
   const liveForMe = [...waiting, ...inCall].filter((c) => !isOthersActive(c, doctor.id));
-  const released = by("approved", "closed");
-  const callbacks = by("callback");
-  const consulted = consultations.filter((c) => c.callStartedAt);
-  const avgWait = avg(consulted.map((c) => c.callStartedAt! - (c.consentAt ?? c.createdAt)));
-  const ended = consultations.filter((c) => c.callStartedAt && c.callEndedAt);
-  const avgCall = avg(ended.map((c) => c.callEndedAt! - c.callStartedAt!));
-  const approvalTurnaround = avg(
-    consultations.filter((c) => c.approvedAt && c.callEndedAt).map((c) => c.approvedAt! - c.callEndedAt!),
-  );
+  const myReleased = by("approved", "closed").filter((c) => c.prescriberId === doctor.id);
+  const myEnded = consultations.filter((c) => c.prescriberId === doctor.id && c.callStartedAt && c.callEndedAt);
+  const myAvgCall = avg(myEnded.map((c) => c.callEndedAt! - c.callStartedAt!));
+  const mySeen = consultations.filter((c) => c.prescriberId === doctor.id && c.callStartedAt);
+  const recentReleased = [...myReleased].sort((a, b) => (b.approvedAt ?? 0) - (a.approvedAt ?? 0)).slice(0, 4);
+  const myCall = consultations.find((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === doctor.id);
 
-  const toApprove = by("drafting");
-  const myDrafts = by("drafting").filter((c) => c.prescriberId === doctor.id);
-  const iAmBusy = consultations.some((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === doctor.id);
-
-  const funnel = [
-    { label: "Signed in & checked", n: consultations.length },
-    { label: "Eligible", n: consultations.filter((c) => c.status !== "ineligible").length },
-    { label: "Consented", n: consultations.filter((c) => c.consentAt).length },
-    { label: "Consulted", n: consulted.length },
-    { label: "AI drafted", n: consultations.filter((c) => c.callEndedAt).length },
-    { label: "Released", n: released.length },
-  ];
 
   return (
     <div className="p-6">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[12.5px] text-[var(--mute)]">
-            {new Date(now).toLocaleDateString("en-PK", { timeZone: CLINIC_HOURS.tz, weekday: "long", day: "numeric", month: "long", year: "numeric" })} ·{" "}
-            {CLINIC_HOURS.days}, 9 AM–6 PM
-          </p>
-          <h1 className="mt-0.5 text-[24px] font-semibold tracking-tight text-[var(--teal-deep)]">
-            Good {greetingKey(now)}, {doctor.name.split(" ").slice(0, 2).join(" ")}
-          </h1>
-          <p className="mt-1 text-[13px] text-[var(--body)]">
-            {waiting.length ? `${waiting.length} waiting` : "No one waiting"} · {myDrafts.length} AI-drafted prescription
-            {myDrafts.length === 1 ? "" : "s"} for you to approve
-          </p>
+      <div className="-mx-6 -mt-6 mb-6 flex flex-wrap items-center justify-between gap-3 hero-band border-b border-[var(--line)] px-6 py-5">
+        <div className="flex items-center gap-3.5">
+          <Avatar initials={doctor.initials} size={48} />
+          <div>
+            <p className="text-[12.5px] text-[var(--mute)]">
+              {new Date(now).toLocaleDateString("en-PK", { timeZone: CLINIC_HOURS.tz, weekday: "long", day: "numeric", month: "long" })} · {CLINIC_HOURS.days}, 9 AM–6 PM
+            </p>
+            <h1 className="page-title">
+              Good {greetingKey(now)}, {doctor.name.split(" ").slice(0, 2).join(" ")}
+            </h1>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Chip tone={waiting.length ? "amber" : "neutral"}>{waiting.length ? `${waiting.length} waiting` : "No one waiting"}</Chip>
           <LiveClock />
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={!doctor.available || iAmBusy || !waiting.some((c) => c.status === "queued")}
-            onClick={() => takeNext(doctor.id)}
-          >
-            <PhoneIncoming size={14} /> Take next patient
-          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-6">
+      {/* Who's next for this doctor, then their own numbers — clinic-wide figures live on the admin overview. */}
+      <div className="grid gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+        <NextPatient doctor={doctor} myCall={myCall} now={now} />
+      <div className="grid grid-cols-2 gap-3.5">
         <KpiTile index={0} accent="amber" label="Waiting now" value={String(waiting.length)} detail={waiting.length ? `Longest ${minutesAgo(waiting[0].createdAt, now).replace(" ago", "")}` : "Queue is clear"} />
-        <KpiTile index={1} accent="green" label="In consult" value={String(inCall.length)} detail={`${doctors.filter((d) => d.available).length} of ${doctors.length} GPs available`} />
-        <KpiTile index={2} accent="violet" label="To approve" value={String(toApprove.length)} detail={`${myDrafts.length} AI draft${myDrafts.length === 1 ? "" : "s"} waiting on you`} />
-        <KpiTile index={3} accent="teal" label="Prescriptions released" value={String(released.length)} detail={approvalTurnaround ? `${fmtMinutes(approvalTurnaround)} call end → approval` : "—"} />
-        <KpiTile index={4} accent="indigo" label="Avg wait to doctor" value={avgWait ? fmtMinutes(avgWait) : "—"} detail={avgCall ? `${fmtDuration(avgCall)} avg call` : "—"} />
-        <KpiTile index={5} accent="red" label="Sent to ER" value={String(by("emergency").length)} detail={`${by("ineligible").length} not eligible → support`} />
+        <KpiTile index={1} accent="green" label="My call" value={myCall ? "On call" : doctor.available ? "Free" : "Off"} detail={myCall ? `With ${myCall.member.name}` : doctor.available ? "Ready for the next patient" : "Go available to be rung"} />
+        <KpiTile index={2} accent="violet" label="Seen today" value={String(mySeen.length)} detail={`${myReleased.length} prescription${myReleased.length === 1 ? "" : "s"} released`} />
+        <KpiTile index={3} accent="teal" label="Avg call" value={myAvgCall ? fmtDuration(myAvgCall) : "—"} detail={`${myEnded.length} call${myEnded.length === 1 ? "" : "s"} ended`} />
+      </div>
       </div>
 
-      <Section
-        className="mt-5"
-        title="Consultation pipeline"
-        sub="Every consultation started today, by the furthest step it reached"
-        action={
-          <Link to="/portal/consultations" search={{ view: "all" }} className="text-[13px] font-semibold">
-            Open consultations →
-          </Link>
-        }
-      >
-        <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-          <div className="grid gap-2.5">
-            {funnel.map((row, i) => {
-              const pct = funnel[0].n ? (row.n / funnel[0].n) * 100 : 0;
-              const prev = i ? funnel[i - 1].n : 0;
-              const conv = i && prev ? (row.n / prev) * 100 : null;
-              return (
-                <div key={row.label} className="grid grid-cols-[150px_1fr_44px_56px] items-center gap-3 text-[13.5px]">
-                  <span className="text-[var(--body)]">{row.label}</span>
-                  <span className="relative h-6 overflow-hidden rounded-(--radius-sm) bg-[var(--sunken)]">
-                    <span
-                      className="absolute inset-y-0 left-0 rounded-(--radius-sm) bg-[var(--sky-300)] transition-[width] duration-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                    <span className="absolute inset-y-0 w-[2px] bg-[var(--link)]" style={{ left: `calc(${pct}% - 2px)` }} />
-                  </span>
-                  <span className="text-right font-mono text-[13px] text-[var(--ink)]">{row.n}</span>
-                  <span className={`text-right font-mono text-[12px] ${conv !== null && conv < 85 ? "text-[var(--red)]" : "text-[var(--mute)]"}`}>
-                    {conv === null ? "—" : `${conv.toFixed(0)}%`}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <LiveCalls doctor={doctor} />
-        </div>
-      </Section>
-
-      <ScheduledCalls doctor={doctor} />
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-3">
+      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <ConsultProgress consultations={consultations} doctorId={doctor.id} now={now} />
+        <div className="grid gap-5">
         <Section
           title="Live queue"
           sub={`${waiting.length} waiting · ${inCall.length} in consult`}
@@ -150,7 +86,7 @@ export default function DashboardScreen() {
           }
         >
           {liveForMe.length === 0 ? (
-            <Empty>No one is waiting. New patients ring the first free GP.</Empty>
+            <Empty>No one is waiting.</Empty>
           ) : (
             <ul className="divide-y divide-[var(--hair)]">
               {liveForMe.map((c) => (
@@ -172,81 +108,112 @@ export default function DashboardScreen() {
           )}
         </Section>
 
-        <Section title="Needs attention" sub={`${myDrafts.length} AI draft${myDrafts.length === 1 ? "" : "s"} to check & approve`}>
-          {myDrafts.length === 0 ? (
-            <Empty>Nothing waiting on you.</Empty>
+        <Section
+          title="Recently released"
+          action={
+            <Link to="/portal/consultations" search={{ view: "history" }} className="text-[13px] font-semibold">
+              History →
+            </Link>
+          }
+        >
+          {recentReleased.length === 0 ? (
+            <Empty>No prescriptions released yet.</Empty>
           ) : (
             <ul className="grid gap-2">
-              {myDrafts.map((c) => (
-                <Attention
-                  key={c.id}
-                  tone="warn"
-                  to={c.id}
-                  title={`Check & approve — ${c.member.name}`}
-                  note={`${c.notes.diagnosis || "AI draft"} · call ended ${c.callEndedAt ? minutesAgo(c.callEndedAt, now) : ""}`}
-                />
+              {recentReleased.map((c) => (
+                <Attention key={c.id} to={c.id} title={c.member.name} note={`${c.notes.diagnosis || "—"} · ${c.approvedAt ? minutesAgo(c.approvedAt, now) : ""}`} />
               ))}
             </ul>
           )}
         </Section>
-
-        <Section title="Doctors on duty" sub={`${CLINIC_HOURS.days} · 9 AM–6 PM PKT`}>
-          <ul className="divide-y divide-[var(--hair)]">
-            {doctors.map((d) => {
-              const current = consultations.find((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === d.id);
-              return (
-                <li key={d.id} className="flex items-center gap-3 py-2.5">
-                  <Avatar initials={d.initials} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.5px] font-semibold text-[var(--ink)]">
-                      {d.name} {d.id === doctor.id ? <span className="font-normal text-[var(--mute)]">(you)</span> : null}
-                    </div>
-                    <div className="truncate text-[12px] text-[var(--mute)]">
-                      {current ? `${current.status === "ringing" ? "Ringing" : "With"} ${current.member.name}` : d.available ? "Free" : "Off the rota"}
-                    </div>
-                  </div>
-                  {d.id === doctor.id ? (
-                    <Button size="sm" onClick={() => setAvailability(d.id, !d.available)}>
-                      {d.available ? "Go unavailable" : "Go available"}
-                    </Button>
-                  ) : (
-                    <span
-                      className={`rounded-(--radius-pill) px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] ${
-                        current ? "bg-[var(--amber-tint)] text-[var(--amber-ink)]" : d.available ? "bg-[var(--green-tint)] text-[var(--color-green-ink)]" : "bg-[var(--sunken)] text-[var(--mute)]"
-                      }`}
-                    >
-                      {current ? "busy" : d.available ? "free" : "off"}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {callbacks.length ? (
-            <div className="mt-3 rounded-(--radius-md) bg-[var(--sunken)] px-3 py-2.5 text-[12.5px] text-[var(--body)]">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold text-[var(--ink)]">
-                <Clock size={13} /> Call backs
-              </div>
-              {callbacks.map((c) => (
-                <div key={c.id} className="flex justify-between">
-                  <span>{c.member.name}</span>
-                  <span className="font-mono">{c.callbackAt ? fmtTime(c.callbackAt) : "—"}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </Section>
+        </div>
       </div>
     </div>
   );
 }
 
-function Attention({ tone, title, note, to }: { tone: "warn" | "err"; title: string; note: string; to: string }) {
+/** The brand-blue card. Patients call in and are rung through to a free GP, so a
+    patient takes this card only while their call is with this doctor (ringing or in
+    progress). Otherwise it is the doctor's own card: whether calls will reach them. */
+function NextPatient({ doctor, myCall, now }: { doctor: Doctor; myCall?: Consultation; now: number }) {
+  if (!myCall) {
+    return (
+      <section className="flex min-h-[244px] flex-col justify-between surface-brand rounded-(--radius-xl) p-6 text-white">
+        <p className="inline-flex items-center gap-2 text-[13px] font-semibold text-white/75">
+          <span className={`h-2 w-2 rounded-full ${doctor.available ? "bg-[#6ee7a0]" : "bg-white/50"}`} />
+          {doctor.available ? "Available" : "Unavailable"}
+        </p>
+        <div className="flex items-center gap-4">
+          <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[#fff] text-[20px] font-bold text-[var(--action)]">
+            {doctor.initials}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[22px] font-bold leading-tight">{doctor.available ? "Patients' calls will ring here" : "You're off calls"}</p>
+            <p className="text-[13px] text-white/75">
+              {doctor.name} · {doctor.pmdc}
+            </p>
+          </div>
+        </div>
+        <div />
+      </section>
+    );
+  }
+
+  const facts = [
+    complaintLabel(myCall),
+    myCall.lang === "ur" ? "Urdu" : "English",
+    ...(myCall.callStartedAt ? [`${fmtDuration(now - myCall.callStartedAt)} on call`] : []),
+  ];
+  return (
+    <section className="flex min-h-[244px] flex-col justify-between surface-brand rounded-(--radius-xl) p-6 text-white">
+      <p className="text-[13px] font-semibold text-white/75">{myCall.status === "ringing" ? "Ringing you now" : "On a call with"}</p>
+      <div className="flex items-center gap-4">
+        <span className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-[#fff] text-[20px] font-bold text-[var(--action)]">
+          {initialsOf(myCall.member.name)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[22px] font-bold leading-tight">{myCall.member.name}</p>
+          <p className="text-[13px] text-white/75">
+            {myCall.member.age} · {myCall.member.gender === "M" ? "Male" : "Female"} · {myCall.member.mrn}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {facts.map((x) => (
+              <span key={x} className="rounded-(--radius-pill) bg-white/15 px-2.5 py-0.5 text-[12px] font-semibold">
+                {x}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          to="/portal/consultations/$id"
+          params={{ id: myCall.id }}
+          className="inline-flex items-center gap-2 rounded-(--radius-md) bg-[#fff] px-4 py-2.5 text-[13.5px] font-bold !text-[var(--action)] hover:bg-[#eef4fc]"
+        >
+          <PhoneIncoming size={16} /> {myCall.status === "ringing" ? "Answer" : "Return to call"}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function Chip({ tone, children }: { tone: "amber" | "violet" | "neutral"; children: ReactNode }) {
+  const cls =
+    tone === "amber"
+      ? "bg-[var(--amber-tint)] text-[var(--amber-ink)]"
+      : tone === "violet"
+        ? "bg-[var(--tint)] text-[var(--link)]"
+        : "bg-[var(--sunken)] text-[var(--mute)]";
+  return <span className={`rounded-(--radius-pill) px-3 py-1.5 text-[12.5px] font-semibold ${cls}`}>{children}</span>;
+}
+
+function Attention({ title, note, to }: { title: string; note: string; to: string }) {
   const link = { to: "/portal/consultations/$id" as const, params: { id: to } };
   return (
     <li>
       <Link {...link} className="group flex items-start gap-3 rounded-(--radius-md) px-2 py-2 hover:bg-[var(--sunken)]">
-        <span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-[2px] ${tone === "err" ? "bg-[var(--red)]" : "bg-[var(--amber)]"}`} />
+        <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-[2px] bg-[var(--green)]" />
         <span className="min-w-0 flex-1">
           <span className="block text-[13.5px] font-semibold text-[var(--ink)]">{title}</span>
           <span className="block truncate text-[12px] text-[var(--mute)]">{note}</span>
@@ -262,4 +229,3 @@ function Empty({ children }: { children: ReactNode }) {
 }
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-const fmtMinutes = (ms: number) => `${Math.max(1, Math.round(ms / 60_000))} min`;

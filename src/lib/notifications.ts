@@ -8,7 +8,6 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { complaintText } from "@/lib/complaint";
-import { fmtTime } from "@/lib/clinic";
 import { translate } from "@/lib/i18n";
 import { usePlatform } from "@/store/consult-store";
 import type { AuditEvent, Consultation, Lang } from "@/lib/types";
@@ -41,8 +40,6 @@ function forDoctor(e: AuditEvent, c: Consultation | undefined, me: { id: string;
     return { ...base, tone: "info", title: "Patient waiting", message: `${who} joined the queue — ${complaintText(c?.symptoms) || "no complaint given"}.`, href: { to: "/portal/consultations", search: { view: "live" } } };
   if (e.action === "Rang GP" && e.detail === me.name)
     return { ...base, tone: "call", title: "Incoming call", message: `${who} is ringing you.`, href: consult };
-  if (e.action === "Chose a call back")
-    return { ...base, tone: "info", title: "Call back booked", message: `${who} asked to be called back${c?.callbackAt ? ` at ${fmtTime(c.callbackAt)}` : ""}.`, href: consult };
   if (e.action === "Drafted notes & prescription" && mine)
     return { ...base, tone: "warn", title: "AI draft ready to approve", message: `AI assist drafted ${who}'s notes & prescription. Check, edit and approve to release it.`, href: consult };
   if (e.action.startsWith("Approved prescription") && mine)
@@ -64,8 +61,6 @@ function forPatient(e: AuditEvent, c: Consultation | undefined, lang: Lang): App
   if (e.action === "Ended call") return { ...base, tone: "info", title: t("nEndedT"), message: t("nEndedM", { name }), href: call };
   if (e.action === "Prescription released to patient")
     return { ...base, tone: "ok", title: t("nReleasedT"), message: t("nReleasedM", { name }), href: { to: "/patient/records" } };
-  if (e.action === "Chose a call back")
-    return { ...base, tone: "info", title: t("nCallbackT"), message: t("nCallbackM", { name, time: c.callbackAt ? fmtTime(c.callbackAt) : "—" }), href: { to: "/patient/queue" } };
   return null;
 }
 

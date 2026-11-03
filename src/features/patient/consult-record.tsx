@@ -1,27 +1,16 @@
-/* The record of one consultation for the patient — what was chosen at each
-   step (who for, consent, symptoms and the red-flag check) and
-   the conversation with the doctor: a short summary and the full transcript,
-   with English renderings of Urdu lines. Shown under the prescription, or on
-   its own while the doctor is still approving it. */
+/* The record of one consultation for the patient, as two tabs on the records
+   page: what was chosen at each step (who for, consent, symptoms and the
+   red-flag check), and a short summary of the call. The transcript itself is
+   kept on the record but never shown to the patient. */
 
-import { useState } from "react";
-import { ChevronDown, ClipboardList, MessagesSquare } from "lucide-react";
+import { ClipboardList, MessagesSquare } from "lucide-react";
 import { AI_DRAFT, DURATIONS, RED_FLAGS } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { fmtDateTime, fmtDuration, fmtTime } from "@/lib/clinic";
 import { pick, useT, type StringKey } from "@/lib/i18n";
 import type { Consultation, Doctor } from "@/lib/types";
 
-export default function ConsultRecord({ consult, doctor }: { consult: Consultation; doctor?: Doctor }) {
-  return (
-    <>
-      <IntakeRecord consult={consult} />
-      <CallSummary consult={consult} doctor={doctor} />
-    </>
-  );
-}
-
-function IntakeRecord({ consult }: { consult: Consultation }) {
+export function IntakeRecord({ consult }: { consult: Consultation }) {
   const { t, lang } = useT();
   const s = consult.symptoms;
   const m = consult.member;
@@ -59,7 +48,7 @@ function IntakeRecord({ consult }: { consult: Consultation }) {
   return (
     <section className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
       <header className="flex items-center justify-between gap-3 border-b border-[var(--hair)] px-5 py-3.5">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-[var(--ink)]">
+        <h2 className="section-title flex items-center gap-2">
           <ClipboardList size={16} className="text-[var(--link)]" /> {t("recIntakeTitle")}
         </h2>
         <span className="font-mono text-[11.5px] text-[var(--mute)]" dir="ltr">
@@ -78,10 +67,8 @@ function IntakeRecord({ consult }: { consult: Consultation }) {
   );
 }
 
-function CallSummary({ consult, doctor }: { consult: Consultation; doctor?: Doctor }) {
-  const { t, lang } = useT();
-  const [open, setOpen] = useState(false);
-  const lines = consult.transcript;
+export function CallSummary({ consult, doctor }: { consult: Consultation; doctor?: Doctor }) {
+  const { t } = useT();
   // The scripted demo call has AI assist's summary; otherwise the doctor's notes stand in.
   const summary = consult.scripted
     ? AI_DRAFT.summary
@@ -91,7 +78,7 @@ function CallSummary({ consult, doctor }: { consult: Consultation; doctor?: Doct
   return (
     <section className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--hair)] px-5 py-3.5">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-[var(--ink)]">
+        <h2 className="section-title flex items-center gap-2">
           <MessagesSquare size={16} className="text-[var(--link)]" /> {t("recCallTitle")}
         </h2>
         <span className="font-mono text-[11.5px] text-[var(--mute)]" dir="ltr">
@@ -115,47 +102,7 @@ function CallSummary({ consult, doctor }: { consult: Consultation; doctor?: Doct
             <p className="text-[13px] text-[var(--mute)]">{t("recNoSummary")}</p>
           )}
         </div>
-
-        {lines.length ? (
-          <div>
-            <button
-              type="button"
-              onClick={() => setOpen((o) => !o)}
-              aria-expanded={open}
-              className="inline-flex items-center gap-1.5 text-[13px] font-semibold !text-[var(--link)] hover:underline"
-            >
-              <ChevronDown size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-              {open ? t("recHideTranscript") : t("recShowTranscript", { n: lines.length })}
-            </button>
-            {open ? (
-              <ol className="mt-3 grid gap-2.5">
-                {lines.map((l) => {
-                  const mine = l.speaker === "patient";
-                  return (
-                    <li key={l.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[80%] rounded-(--radius-lg) px-3.5 py-2 ${
-                          mine ? "bg-[var(--primary)] text-[var(--ink)]" : "border border-[var(--line)] bg-[var(--sunken)] text-[var(--ink)]"
-                        }`}
-                      >
-                        <div className="mb-0.5 flex items-center gap-2 text-[11px] text-[var(--mute)]">
-                          <span className="font-semibold">{mine ? t("you") : doctorName}</span>
-                          <span className="font-mono" dir="ltr">
-                            {fmtTime(l.at)}
-                          </span>
-                        </div>
-                        <p lang={l.lang} dir={l.lang === "ur" ? "rtl" : "ltr"} className="text-[13.5px]">
-                          {l.text}
-                        </p>
-                        {l.gloss && lang === "en" ? <p className="mt-0.5 text-[12px] italic text-[var(--mute)]">{l.gloss}</p> : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            ) : null}
-          </div>
-        ) : null}
+        {/* The transcript stays on the record for the doctor and the system; patients get the summary only. */}
       </div>
     </section>
   );

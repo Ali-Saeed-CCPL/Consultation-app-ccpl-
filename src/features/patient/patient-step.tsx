@@ -12,13 +12,13 @@
 
 import type { ReactNode } from "react";
 
-/** The height left under the header and the page's padding — what the columns fill. */
-const FILL = "lg:min-h-[calc(100dvh-158px)]";
-const RAIL_H = "lg:h-[calc(100dvh-158px)]";
+/** Columns size to their content (no stretching to the window's height — that left hollow
+    cards); the side rails only cap at the window's height and scroll past it. */
+const RAIL_H = "lg:max-h-[calc(100dvh-158px)]";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, Check, Headphones, LifeBuoy, Lightbulb, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Headphones, LifeBuoy, Lightbulb } from "lucide-react";
 import { DURATIONS, HOUSEHOLD, RED_FLAGS } from "@/data/seed";
-import { complaintText } from "@/lib/complaint";
+import { complaintKeys, complaintText } from "@/lib/complaint";
 import { fmtTime, isClinicOpen } from "@/lib/clinic";
 import { pick, useT, type StringKey } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
@@ -31,7 +31,7 @@ export const PATIENT_STEPS = ["choose", "consent", "symptoms", "queue", "consult
 export type PatientStepKey = (typeof PATIENT_STEPS)[number];
 
 /** A consultation still being walked through (as opposed to one finished earlier). */
-const IN_PROGRESS: ConsultStatus[] = ["intake", "emergency", "queued", "ringing", "callback", "in_call"];
+const IN_PROGRESS: ConsultStatus[] = ["intake", "emergency", "queued", "ringing", "in_call"];
 
 export default function PatientStep({
   step,
@@ -39,22 +39,27 @@ export default function PatientStep({
   lede,
   children,
   footer,
+  back,
 }: {
   step?: PatientStepKey;
   title: ReactNode;
   lede?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  /** The previous step, as a "Back" button at the start of the footer. */
+  back?: string;
 }) {
   const body = (
-    <section className={`flex min-w-0 flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) ${step ? FILL : ""}`}>
+    <section className={`flex min-w-0 flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)`}>
       <div className="px-6 pt-6 lg:px-8 lg:pt-7">
-        <h1 className="text-[24px] font-semibold leading-tight tracking-tight text-[var(--ink)]">{title}</h1>
+        {step ? <CompactSteps step={step} /> : null}
+        <h1 className="page-title">{title}</h1>
         {lede ? <p className="mt-2 max-w-[720px] text-[14.5px] leading-relaxed text-[var(--body)]">{lede}</p> : null}
       </div>
       {children ? <div className="flex-1 px-6 pt-5 pb-6 lg:px-8">{children}</div> : <div className="flex-1 pb-6" />}
       {footer ? (
         <div className="mt-auto flex flex-col-reverse gap-2.5 rounded-b-(--radius-card) border-t border-[var(--hair)] bg-[var(--sunken)] px-6 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:px-8">
+          {back ? <BackAction to={back} /> : null}
           {footer}
         </div>
       ) : null}
@@ -64,11 +69,30 @@ export default function PatientStep({
   if (!step) return <div className="line-in">{body}</div>;
   return (
     <div className="line-in grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_320px] 2xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-      <div className={`lg:sticky lg:top-[134px] ${RAIL_H}`}>
+      {/* Below lg the rail gives way to the compact stepper inside the card, so the task comes first. */}
+      <div className={`hidden lg:sticky lg:top-[134px] lg:flex ${RAIL_H}`}>
         <JourneyRail step={step} />
       </div>
       {body}
       <JourneyInfo step={step} />
+    </div>
+  );
+}
+
+/** Tablet / phone progress: "Step 2 of 5 · Consent" over a five-segment bar. */
+function CompactSteps({ step }: { step: PatientStepKey }) {
+  const { t } = useT();
+  const current = PATIENT_STEPS.indexOf(step);
+  return (
+    <div className="mb-4 lg:hidden">
+      <p className="text-[12.5px] font-semibold text-[var(--mute)]">
+        {current + 1} / {PATIENT_STEPS.length} · <span className="text-[var(--ink)]">{t(`j_${step}` as StringKey)}</span>
+      </p>
+      <div className="mt-2 grid grid-cols-5 gap-1">
+        {PATIENT_STEPS.map((k, i) => (
+          <span key={k} className={`h-1 rounded-full ${i <= current ? "bg-[var(--action)]" : "bg-[var(--hair)]"}`} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -93,7 +117,7 @@ function stepLink(key: PatientStepKey, c: Consultation | undefined): { to: strin
     case "symptoms":
       return (c?.status === "intake" && c.consentAt) || c?.status === "emergency" ? { to: "/patient/symptoms" } : null;
     case "queue":
-      return c && ["queued", "ringing", "callback"].includes(c.status) ? { to: "/patient/queue" } : null;
+      return c && ["queued", "ringing"].includes(c.status) ? { to: "/patient/queue" } : null;
     case "consult":
       return c && ["in_call", "drafting", "approved", "closed"].includes(c.status) ? { to: "/patient/call" } : null;
   }
@@ -105,7 +129,7 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
   const current = PATIENT_STEPS.indexOf(step);
 
   return (
-    <aside className="flex h-full flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
+    <aside className="flex w-full flex-col overflow-y-auto rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm)">
       <div className="border-b border-[var(--hair)] px-5 py-4">
         <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[var(--mute)]">{t("journeyTitle")}</p>
         {consult && step !== "choose" ? (
@@ -119,8 +143,7 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
           <p className="mt-1.5 text-[13px] text-[var(--body)]">{HOUSEHOLD.partner}</p>
         )}
       </div>
-      {/* From lg each step takes an equal share of the rail's height, so the steps spread to the bottom. */}
-      <ol className="flex flex-col px-3 py-3 lg:min-h-0 lg:flex-1">
+      <ol className="flex flex-col gap-1 px-3 py-3">
         {PATIENT_STEPS.map((key, i) => {
           const state = i < current ? "done" : i === current ? "current" : "todo";
           const link = state === "current" ? null : stepLink(key, consult);
@@ -129,7 +152,7 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
               <span
                 className={`relative z-[1] flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full border font-mono text-[12px] font-semibold ${
                   state === "done"
-                    ? "border-[var(--link)] bg-[var(--link)] text-[var(--color-on-fill)]"
+                    ? "border-[var(--action)] bg-[var(--action)] text-white"
                     : state === "current"
                       ? "border-[var(--link)] bg-[var(--white)] text-[var(--link)] shadow-[0_0_0_4px_var(--tint)]"
                       : link
@@ -144,14 +167,13 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
                 <span className={`block text-[15px] leading-tight ${state === "todo" && !link ? "text-[var(--mute)]" : "font-semibold text-[var(--ink)]"}`}>
                   {t(`j_${key}` as StringKey)}
                 </span>
-                <span className="mt-0.5 block text-[12.5px] text-[var(--mute)]">{t(`j_${key}Note` as StringKey)}</span>
               </span>
             </>
           );
           return (
-            <li key={key} className="relative lg:flex-1">
+            <li key={key} className="relative">
               {i < PATIENT_STEPS.length - 1 ? (
-                <span className={`absolute start-[28.5px] top-[44px] -bottom-2.5 w-px ${i < current ? "bg-[var(--link)]" : "bg-[var(--line)]"}`} />
+                <span className={`absolute start-[28.5px] top-[44px] -bottom-3.5 w-px ${i < current ? "bg-[var(--link)]" : "bg-[var(--line)]"}`} />
               ) : null}
               {link ? (
                 <Link
@@ -206,7 +228,7 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
   const waiting = consultations.filter((c) => c.status === "queued").length;
 
   // Tips follow the step and the answers.
-  const tips: { tone: "info" | "warn" | "err"; text: string }[] = [];
+  const tips: { tone: "info" | "warn" | "err"; text: string | string[] }[] = [];
   if (step === "choose") {
     if (member?.relation === "child") tips.push({ tone: "info", text: t("tipChild") });
     else tips.push({ tone: "info", text: t("tipChoose") });
@@ -215,7 +237,10 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
   if (step === "symptoms") {
     if (flags.length) tips.push({ tone: "err", text: t("tipFlags") });
     if (s && s.severity >= 8 && !flags.length) tips.push({ tone: "warn", text: t("tipSevere") });
-    tips.push({ tone: "info", text: s?.complaint ? t(`tip_${s.complaint}` as StringKey) : t("tipSymptoms") });
+    const keys = complaintKeys(s?.complaint);
+    // One box for all picked complaints; a list once there's more than one.
+    if (keys.length > 1) tips.push({ tone: "info", text: keys.map((k) => t(`tip_${k}` as StringKey)) });
+    else tips.push({ tone: "info", text: keys.length ? t(`tip_${keys[0]}` as StringKey) : t("tipSymptoms") });
   }
   if (step === "queue") tips.push({ tone: "info", text: t("keepWaiting") });
 
@@ -315,8 +340,8 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
       {tips.length ? (
         <section className="grid gap-2">
           {tips.map((tip) => (
-            <p
-              key={tip.text}
+            <div
+              key={String(tip.text)}
               className={`line-in flex items-start gap-2.5 rounded-(--radius-card) border px-4 py-3 text-[12.5px] leading-relaxed ${
                 tip.tone === "err"
                   ? "border-[var(--color-danger-border)] bg-[var(--red-tint)] text-[var(--color-danger-body)]"
@@ -330,14 +355,22 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
               ) : (
                 <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
               )}
-              <span>{tip.text}</span>
-            </p>
+              {Array.isArray(tip.text) ? (
+                <ul className="list-disc space-y-1 ps-4">
+                  {tip.text.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span>{tip.text}</span>
+              )}
+            </div>
           ))}
         </section>
       ) : null}
 
       {/* ── Right now ────────────────────────────────────────────────── */}
-      <section className="mt-auto rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4 shadow-(--shadow-sm)">
+      <section className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4 shadow-(--shadow-sm)">
         <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[var(--mute)]">{t("infoNow")}</p>
         <div className="mt-2.5 grid grid-cols-2 gap-2">
           <div className={`rounded-(--radius-md) px-3 py-2 ${open ? "bg-[var(--green-tint)]" : "bg-[var(--sunken)]"}`}>
@@ -352,9 +385,6 @@ function JourneyInfo({ step }: { step: PatientStepKey }) {
           </div>
         </div>
         <p className="mt-3 flex items-start gap-2 text-[12px] text-[var(--mute)]">
-          <ShieldCheck size={14} className="mt-0.5 flex-shrink-0 text-[var(--link)]" /> {t("infoPrivacyBody")}
-        </p>
-        <p className="mt-2 flex items-start gap-2 text-[12px] text-[var(--mute)]">
           <Headphones size={14} className="mt-0.5 flex-shrink-0 text-[var(--link)]" /> {t("needHelp")}
         </p>
       </section>
@@ -374,17 +404,29 @@ function Pill({ tone, children }: { tone: "ok" | "err"; children: ReactNode }) {
   );
 }
 
-const actionBase = "inline-flex w-full items-center justify-center gap-2 rounded-(--radius-md) px-6 py-2.5 text-[14px] font-semibold sm:w-auto sm:min-w-[160px]";
+const actionBase = "inline-flex h-10 w-full items-center justify-center gap-2 rounded-(--radius-md) px-6 text-[14px] font-semibold sm:w-auto sm:min-w-[160px]";
 
 export function PrimaryAction({ children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
       {...rest}
-      className={`${actionBase} border border-[var(--sky-300)] bg-[var(--primary)] text-[var(--ink)] hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:bg-[var(--hair)] disabled:text-[var(--faint)]`}
+      className={`${actionBase} btn-royal border border-transparent text-white shadow-(--shadow-xs) disabled:cursor-not-allowed disabled:border-[var(--line)] disabled:bg-[var(--hair)] disabled:text-[var(--faint)] disabled:shadow-none`}
     >
       {children}
     </button>
+  );
+}
+
+function BackAction({ to }: { to: string }) {
+  const { t } = useT();
+  return (
+    <Link
+      to={to}
+      className={`${actionBase} border border-[var(--border-input)] bg-[var(--white)] !text-[var(--body)] hover:border-[var(--link)] hover:bg-[var(--tint)] sm:me-auto`}
+    >
+      <ArrowLeft size={16} /> {t("back")}
+    </Link>
   );
 }
 

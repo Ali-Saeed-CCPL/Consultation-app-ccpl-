@@ -80,7 +80,7 @@ export default function ChooseScreen() {
               </span>
               <span
                 className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border ${
-                  selected ? "border-[var(--link)] bg-[var(--link)] text-[var(--color-on-fill)]" : "border-[var(--border-input)]"
+                  selected ? "border-[var(--action)] bg-[var(--action)] text-white" : "border-[var(--border-input)]"
                 }`}
               >
                 {selected ? <Check size={12} strokeWidth={3} /> : null}

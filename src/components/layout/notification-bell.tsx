@@ -29,7 +29,7 @@ function timeAgo(at: number): string {
 export default function NotificationBell({
   reader,
   user,
-  labels = { title: "Notifications", markAll: "Mark all as read", empty: "No notifications yet. Queue, calls, AI drafts to approve and released prescriptions appear here." },
+  labels = { title: "Notifications", markAll: "Mark all as read", empty: "No notifications yet." },
 }: {
   reader: Reader;
   /** Read state is kept under this key. */

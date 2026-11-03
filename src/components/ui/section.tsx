@@ -20,7 +20,7 @@ export default function Section({
     <section className={`min-w-0 rounded-(--radius-card) border border-(--color-line) bg-(--color-surface) shadow-(--shadow-sm) ${className}`}>
       <header className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-(--color-ink)">{title}</h2>
+          <h2 className="section-title">{title}</h2>
           {sub ? <p className="mt-0.5 text-[12.5px] text-(--color-mute)">{sub}</p> : null}
         </div>
         {action ? <div className="flex-shrink-0">{action}</div> : null}

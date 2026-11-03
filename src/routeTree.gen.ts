@@ -10,9 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PatientRouteImport } from './routes/patient'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
+import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as PatientIndexRouteImport } from './routes/patient/index'
 import { Route as PatientCallRouteImport } from './routes/patient/call'
 import { Route as PatientChooseRouteImport } from './routes/patient/choose'
@@ -23,14 +28,22 @@ import { Route as PatientQueueRouteImport } from './routes/patient/queue'
 import { Route as PatientRecordsRouteImport } from './routes/patient/records'
 import { Route as PatientSymptomsRouteImport } from './routes/patient/symptoms'
 import { Route as PortalIndexRouteImport } from './routes/portal/index'
-import { Route as PortalAuditRouteImport } from './routes/portal/audit'
 import { Route as PortalDashboardRouteImport } from './routes/portal/dashboard'
+import { Route as AdminConsultationsIndexRouteImport } from './routes/admin/consultations/index'
+import { Route as AdminConsultationsIdRouteImport } from './routes/admin/consultations/$id'
+import { Route as AdminDoctorsIndexRouteImport } from './routes/admin/doctors/index'
+import { Route as AdminDoctorsIdRouteImport } from './routes/admin/doctors/$id'
 import { Route as PortalConsultationsIndexRouteImport } from './routes/portal/consultations/index'
 import { Route as PortalConsultationsIdRouteImport } from './routes/portal/consultations/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -47,6 +60,26 @@ const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDashboardRoute = AdminDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
 } as any)
 const PatientIndexRoute = PatientIndexRouteImport.update({
   id: '/',
@@ -98,15 +131,30 @@ const PortalIndexRoute = PortalIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PortalRoute,
 } as any)
-const PortalAuditRoute = PortalAuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => PortalRoute,
-} as any)
 const PortalDashboardRoute = PortalDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => PortalRoute,
+} as any)
+const AdminConsultationsIndexRoute = AdminConsultationsIndexRouteImport.update({
+  id: '/consultations/',
+  path: '/consultations/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminConsultationsIdRoute = AdminConsultationsIdRouteImport.update({
+  id: '/consultations/$id',
+  path: '/consultations/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDoctorsIndexRoute = AdminDoctorsIndexRouteImport.update({
+  id: '/doctors/',
+  path: '/doctors/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDoctorsIdRoute = AdminDoctorsIdRouteImport.update({
+  id: '/doctors/$id',
+  path: '/doctors/$id',
+  getParentRoute: () => AdminRoute,
 } as any)
 const PortalConsultationsIndexRoute =
   PortalConsultationsIndexRouteImport.update({
@@ -122,9 +170,13 @@ const PortalConsultationsIdRoute = PortalConsultationsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/patient': typeof PatientRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/patient/call': typeof PatientCallRoute
   '/patient/choose': typeof PatientChooseRoute
   '/patient/consent': typeof PatientConsentRoute
@@ -133,16 +185,23 @@ export interface FileRoutesByFullPath {
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
-  '/portal/audit': typeof PortalAuditRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/consultations/$id': typeof AdminConsultationsIdRoute
+  '/admin/doctors/$id': typeof AdminDoctorsIdRoute
   '/portal/consultations/$id': typeof PortalConsultationsIdRoute
+  '/admin/consultations/': typeof AdminConsultationsIndexRoute
+  '/admin/doctors/': typeof AdminDoctorsIndexRoute
   '/portal/consultations/': typeof PortalConsultationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/patient/call': typeof PatientCallRoute
   '/patient/choose': typeof PatientChooseRoute
   '/patient/consent': typeof PatientConsentRoute
@@ -151,19 +210,27 @@ export interface FileRoutesByTo {
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
-  '/portal/audit': typeof PortalAuditRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/admin': typeof AdminIndexRoute
   '/patient': typeof PatientIndexRoute
   '/portal': typeof PortalIndexRoute
+  '/admin/consultations/$id': typeof AdminConsultationsIdRoute
+  '/admin/doctors/$id': typeof AdminDoctorsIdRoute
   '/portal/consultations/$id': typeof PortalConsultationsIdRoute
+  '/admin/consultations': typeof AdminConsultationsIndexRoute
+  '/admin/doctors': typeof AdminDoctorsIndexRoute
   '/portal/consultations': typeof PortalConsultationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/login': typeof LoginRoute
   '/patient': typeof PatientRouteWithChildren
   '/portal': typeof PortalRouteWithChildren
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/dashboard': typeof AdminDashboardRoute
+  '/admin/reports': typeof AdminReportsRoute
   '/patient/call': typeof PatientCallRoute
   '/patient/choose': typeof PatientChooseRoute
   '/patient/consent': typeof PatientConsentRoute
@@ -172,20 +239,28 @@ export interface FileRoutesById {
   '/patient/queue': typeof PatientQueueRoute
   '/patient/records': typeof PatientRecordsRoute
   '/patient/symptoms': typeof PatientSymptomsRoute
-  '/portal/audit': typeof PortalAuditRoute
   '/portal/dashboard': typeof PortalDashboardRoute
+  '/admin/': typeof AdminIndexRoute
   '/patient/': typeof PatientIndexRoute
   '/portal/': typeof PortalIndexRoute
+  '/admin/consultations/$id': typeof AdminConsultationsIdRoute
+  '/admin/doctors/$id': typeof AdminDoctorsIdRoute
   '/portal/consultations/$id': typeof PortalConsultationsIdRoute
+  '/admin/consultations/': typeof AdminConsultationsIndexRoute
+  '/admin/doctors/': typeof AdminDoctorsIndexRoute
   '/portal/consultations/': typeof PortalConsultationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/login'
     | '/patient'
     | '/portal'
+    | '/admin/audit'
+    | '/admin/dashboard'
+    | '/admin/reports'
     | '/patient/call'
     | '/patient/choose'
     | '/patient/consent'
@@ -194,16 +269,23 @@ export interface FileRouteTypes {
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
-    | '/portal/audit'
     | '/portal/dashboard'
+    | '/admin/'
     | '/patient/'
     | '/portal/'
+    | '/admin/consultations/$id'
+    | '/admin/doctors/$id'
     | '/portal/consultations/$id'
+    | '/admin/consultations/'
+    | '/admin/doctors/'
     | '/portal/consultations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/admin/audit'
+    | '/admin/dashboard'
+    | '/admin/reports'
     | '/patient/call'
     | '/patient/choose'
     | '/patient/consent'
@@ -212,18 +294,26 @@ export interface FileRouteTypes {
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
-    | '/portal/audit'
     | '/portal/dashboard'
+    | '/admin'
     | '/patient'
     | '/portal'
+    | '/admin/consultations/$id'
+    | '/admin/doctors/$id'
     | '/portal/consultations/$id'
+    | '/admin/consultations'
+    | '/admin/doctors'
     | '/portal/consultations'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/login'
     | '/patient'
     | '/portal'
+    | '/admin/audit'
+    | '/admin/dashboard'
+    | '/admin/reports'
     | '/patient/call'
     | '/patient/choose'
     | '/patient/consent'
@@ -232,16 +322,21 @@ export interface FileRouteTypes {
     | '/patient/queue'
     | '/patient/records'
     | '/patient/symptoms'
-    | '/portal/audit'
     | '/portal/dashboard'
+    | '/admin/'
     | '/patient/'
     | '/portal/'
+    | '/admin/consultations/$id'
+    | '/admin/doctors/$id'
     | '/portal/consultations/$id'
+    | '/admin/consultations/'
+    | '/admin/doctors/'
     | '/portal/consultations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   LoginRoute: typeof LoginRoute
   PatientRoute: typeof PatientRouteWithChildren
   PortalRoute: typeof PortalRouteWithChildren
@@ -254,6 +349,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -276,6 +378,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/dashboard': {
+      id: '/admin/dashboard'
+      path: '/dashboard'
+      fullPath: '/admin/dashboard'
+      preLoaderRoute: typeof AdminDashboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/patient/': {
       id: '/patient/'
@@ -347,19 +477,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalIndexRouteImport
       parentRoute: typeof PortalRoute
     }
-    '/portal/audit': {
-      id: '/portal/audit'
-      path: '/audit'
-      fullPath: '/portal/audit'
-      preLoaderRoute: typeof PortalAuditRouteImport
-      parentRoute: typeof PortalRoute
-    }
     '/portal/dashboard': {
       id: '/portal/dashboard'
       path: '/dashboard'
       fullPath: '/portal/dashboard'
       preLoaderRoute: typeof PortalDashboardRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/admin/consultations/': {
+      id: '/admin/consultations/'
+      path: '/consultations'
+      fullPath: '/admin/consultations/'
+      preLoaderRoute: typeof AdminConsultationsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/consultations/$id': {
+      id: '/admin/consultations/$id'
+      path: '/consultations/$id'
+      fullPath: '/admin/consultations/$id'
+      preLoaderRoute: typeof AdminConsultationsIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/doctors/': {
+      id: '/admin/doctors/'
+      path: '/doctors'
+      fullPath: '/admin/doctors/'
+      preLoaderRoute: typeof AdminDoctorsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/doctors/$id': {
+      id: '/admin/doctors/$id'
+      path: '/doctors/$id'
+      fullPath: '/admin/doctors/$id'
+      preLoaderRoute: typeof AdminDoctorsIdRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/portal/consultations/': {
       id: '/portal/consultations/'
@@ -377,6 +528,30 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminDashboardRoute: typeof AdminDashboardRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminConsultationsIdRoute: typeof AdminConsultationsIdRoute
+  AdminDoctorsIdRoute: typeof AdminDoctorsIdRoute
+  AdminConsultationsIndexRoute: typeof AdminConsultationsIndexRoute
+  AdminDoctorsIndexRoute: typeof AdminDoctorsIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
+  AdminDashboardRoute: AdminDashboardRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminConsultationsIdRoute: AdminConsultationsIdRoute,
+  AdminDoctorsIdRoute: AdminDoctorsIdRoute,
+  AdminConsultationsIndexRoute: AdminConsultationsIndexRoute,
+  AdminDoctorsIndexRoute: AdminDoctorsIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface PatientRouteChildren {
   PatientCallRoute: typeof PatientCallRoute
@@ -406,7 +581,6 @@ const PatientRouteWithChildren =
   PatientRoute._addFileChildren(PatientRouteChildren)
 
 interface PortalRouteChildren {
-  PortalAuditRoute: typeof PortalAuditRoute
   PortalDashboardRoute: typeof PortalDashboardRoute
   PortalIndexRoute: typeof PortalIndexRoute
   PortalConsultationsIdRoute: typeof PortalConsultationsIdRoute
@@ -414,7 +588,6 @@ interface PortalRouteChildren {
 }
 
 const PortalRouteChildren: PortalRouteChildren = {
-  PortalAuditRoute: PortalAuditRoute,
   PortalDashboardRoute: PortalDashboardRoute,
   PortalIndexRoute: PortalIndexRoute,
   PortalConsultationsIdRoute: PortalConsultationsIdRoute,
@@ -426,6 +599,7 @@ const PortalRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   LoginRoute: LoginRoute,
   PatientRoute: PatientRouteWithChildren,
   PortalRoute: PortalRouteWithChildren,

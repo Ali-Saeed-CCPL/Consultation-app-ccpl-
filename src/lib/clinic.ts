@@ -24,7 +24,8 @@ export function karachiHour(at = Date.now()): number {
 
 export function greetingKey(at = Date.now()): "morning" | "afternoon" | "evening" {
   const h = karachiHour(at);
-  return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
+  // After midnight it is still night — "Good morning" starts at 5.
+  return h < 5 ? "evening" : h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
 }
 
 export function isClinicOpen(at = Date.now()): boolean {
@@ -33,7 +34,7 @@ export function isClinicOpen(at = Date.now()): boolean {
   return hour >= CLINIC_HOURS.open && hour < CLINIC_HOURS.close;
 }
 
-/** The next time the clinic opens — the earliest call back we can promise. */
+/** The next time the clinic opens. */
 export function nextOpening(at = Date.now()): number {
   let t = at;
   for (let i = 0; i < 24 * 8; i++) {
@@ -71,10 +72,9 @@ export const STATUS_META: Record<ConsultStatus, { label: string; tone: Tone }> =
   ineligible: { label: "Not eligible", tone: "err" },
   emergency: { label: "Sent to ER", tone: "err" },
   queued: { label: "In queue", tone: "warn" },
-  callback: { label: "Call back", tone: "warn" },
   ringing: { label: "Ringing", tone: "warn" },
   in_call: { label: "In consult", tone: "ok" },
-  drafting: { label: "To approve", tone: "warn" },
+  drafting: { label: "Prescription released", tone: "ok" }, // legacy, migrated away
   approved: { label: "Prescription released", tone: "ok" },
   closed: { label: "Closed", tone: "neutral" },
 };
@@ -86,8 +86,3 @@ export function isOthersActive(c: Consultation, doctorId: string): boolean {
   return Boolean(c.prescriberId && c.prescriberId !== doctorId && ["ringing", "in_call", "drafting"].includes(c.status));
 }
 
-/** A time today on the clinic's clock — Pakistan is UTC+5 all year, no DST. */
-export function clinicToday(hour: number, minute = 0, at = Date.now()): number {
-  const d = new Date(at + 5 * 3_600_000);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hour - 5, minute);
-}

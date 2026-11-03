@@ -1,62 +1,88 @@
-/* Consultations — the rail's views over one list: live queue, the signed-in
-   doctor's AI-drafted prescriptions to check and approve, released ones,
-   everything, and triage outcomes (sent to ER / not eligible). */
+/* Consultations — the rail's views over one list: the live queue, the history
+   of finished consultations (filtered by date range on the CCPL calendar), and
+   triage outcomes (sent to ER / not eligible). Approval happens in the live
+   call, so history has no status tabs — the Status column says where each one is. */
 
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import PageHero from "@/components/layout/page-hero";
+import DateRangePicker from "@/components/ui/date-range-picker";
 import StatusTag from "@/components/ui/status-tag";
 import { Cell, EmptyRow, Row, Table } from "@/components/ui/table";
 import { RED_FLAGS } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
-import { fmtDateTime, isOthersActive } from "@/lib/clinic";
+import { CLINIC_HOURS, fmtDateTime, isOthersActive } from "@/lib/clinic";
 import { usePlatform } from "@/store/consult-store";
 import { useCurrentDoctor } from "@/store/use-current-doctor";
 import type { Consultation } from "@/lib/types";
 
-type View = "live" | "drafts" | "released" | "all" | "triage";
+type View = "live" | "history" | "triage";
 
-const VIEWS: Record<View, { title: string; sub: string; filter: (c: Consultation, me: string) => boolean }> = {
+const VIEWS: Record<View, { title: string; filter: (c: Consultation) => boolean }> = {
   live: {
     title: "Live queue",
-    sub: "Patients waiting, being rung, on a call, or booked for a call back.",
-    filter: (c) => ["queued", "ringing", "in_call", "callback"].includes(c.status),
+    filter: (c) => ["queued", "ringing", "in_call"].includes(c.status),
   },
-  drafts: {
-    title: "To approve",
-    sub: "Your finished calls. AI assist has drafted the notes & prescription — check, edit and approve to release it to the patient.",
-    filter: (c, me) => c.status === "drafting" && c.prescriberId === me,
+  history: {
+    title: "History",
+    filter: (c) => ["drafting", "approved", "closed"].includes(c.status),
   },
-  released: {
-    title: "Released",
-    sub: "Prescriptions approved by the consulting doctor and released to the patient's portal and email.",
-    filter: (c) => ["approved", "closed"].includes(c.status),
-  },
-  all: { title: "All consultations", sub: "Every consultation on the platform, newest first.", filter: () => true },
   triage: {
     title: "Triage outcomes",
-    sub: "Stopped before the queue — red flags sent to the ER, or cover CCPL support is following up.",
     filter: (c) => ["emergency", "ineligible"].includes(c.status),
   },
 };
 
-export default function ConsultationsScreen({ view }: { view: View }) {
-  const doctor = useCurrentDoctor()!;
+/** YYYY-MM-DD in the clinic's time zone — compares as a string against the picker's range. */
+const dayOf = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { timeZone: CLINIC_HOURS.tz });
+
+/** `admin`: the clinic admin's view — every doctor's consultations, opened read-only under /admin. */
+export default function ConsultationsScreen({ view, admin = false }: { view: View; admin?: boolean }) {
+  const doctor = useCurrentDoctor();
   const navigate = useNavigate();
   const consultations = usePlatform((s) => s.consultations);
   const doctors = usePlatform((s) => s.doctors);
+  // Empty range = all time.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const meta = VIEWS[view];
-  const rows = consultations.filter((c) => meta.filter(c, doctor.id) && !isOthersActive(c, doctor.id)).sort((a, b) => b.createdAt - a.createdAt);
+  const history = view === "history";
+  const base = admin ? "/admin/consultations" : "/portal/consultations";
+  const title = admin ? "Consultation records" : meta.title;
+
+  const rows = consultations
+    .filter((c) => meta.filter(c) && (admin || !isOthersActive(c, doctor!.id)))
+    .filter((c) => !history || !from || (dayOf(c.createdAt) >= from && dayOf(c.createdAt) <= to))
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const [ty, tm, td] = dayOf(Date.now()).split("-").map(Number);
 
   return (
     <>
-      <PageHero crumb={[{ label: "Consultations", to: "/portal/consultations" }, { label: meta.title }]} title={meta.title} sub={meta.sub} />
+      <PageHero crumb={admin ? [{ label: title }] : [{ label: "Consultations", to: base }, { label: title }]} title={title} />
       <main className="p-6">
+        {history ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-[var(--mute)]">
+              <span className="font-semibold text-[var(--ink)]">{rows.length}</span> consultation{rows.length === 1 ? "" : "s"}
+            </p>
+            <DateRangePicker
+              start={from}
+              end={to}
+              today={new Date(ty, tm - 1, td)}
+              onChange={(s, e) => {
+                setFrom(s);
+                setTo(e);
+              }}
+            />
+          </div>
+        ) : null}
         <Table
-          head={["Ref", "Patient", "Complaint", "Language", "Doctor", "Started", "Status"]}
-          empty={rows.length ? null : <EmptyRow>Nothing here right now.</EmptyRow>}
+          // History is one plain record, not sorted into statuses — no Status column there.
+          head={["Ref", "Patient", "Complaint", "Language", "Doctor", "Started", ...(history ? [] : ["Status"])]}
+          empty={rows.length ? null : <EmptyRow>{history && from ?"No consultations in this period." : "Nothing here right now."}</EmptyRow>}
         >
           {rows.map((c) => (
-            <Row key={c.id} onClick={() => navigate({ to: "/portal/consultations/$id", params: { id: c.id } })}>
+            <Row key={c.id} onClick={() => navigate({ to: `${base}/$id`, params: { id: c.id } })}>
               <Cell mono strong>
                 {c.id}
               </Cell>
@@ -74,9 +100,11 @@ export default function ConsultationsScreen({ view }: { view: View }) {
               <Cell>{c.lang === "ur" ? "Urdu" : "English"}</Cell>
               <Cell>{doctors.find((d) => d.id === c.prescriberId)?.name ?? "—"}</Cell>
               <Cell mono>{fmtDateTime(c.createdAt)}</Cell>
-              <Cell>
-                <StatusTag status={c.status} />
-              </Cell>
+              {history ? null : (
+                <Cell>
+                  <StatusTag status={c.status} />
+                </Cell>
+              )}
             </Row>
           ))}
         </Table>

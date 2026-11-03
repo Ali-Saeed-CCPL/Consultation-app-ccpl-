@@ -1,20 +1,22 @@
-/* Doctor-portal shell — the ERP's AppShell composition:
+/* Portal shell — the ERP's AppShell composition:
      TopNav      fixed, 109px
      ModuleRail  fixed, below the header, 240px / 56px collapsed (modules with screens only)
      content     offset by both
-   plus the incoming-call card, which can ring on any screen. */
+   With a doctor it's the doctor portal, plus the incoming-call card that can ring
+   on any screen; without one it's the clinic admin's portal (sees every doctor's
+   consultations, takes no calls). */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import TopNav, { CHROME_H } from "@/components/layout/top-nav";
 import ModuleRail from "@/components/layout/module-rail";
-import { RAIL } from "@/config/navigation";
+import { ADMIN_RAIL, RAIL } from "@/config/navigation";
 import { isOthersActive } from "@/lib/clinic";
 import IncomingCall from "@/features/portal/incoming-call";
 import { usePlatform } from "@/store/consult-store";
 import type { Doctor } from "@/lib/types";
 
-export default function PortalShell({ doctor, children }: { doctor: Doctor; children: ReactNode }) {
+export default function PortalShell({ doctor, children }: { doctor?: Doctor; children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const consultations = usePlatform((s) => s.consultations);
   const [collapsed, setCollapsed] = useState(false);
@@ -32,20 +34,22 @@ export default function PortalShell({ doctor, children }: { doctor: Doctor; chil
 
   const moduleKey = pathname.split("/")[2] ?? "dashboard";
   // Inside a single consultation or review the page needs the full width.
-  const rail = pathname.split("/").length > 3 ? undefined : RAIL[moduleKey];
+  const rail = pathname.split("/").length > 3 ? undefined : (doctor ? RAIL : ADMIN_RAIL)[moduleKey];
 
   const counts = useMemo(() => {
     const out: Record<string, number> = {};
     for (const item of rail?.items ?? []) {
       if (!item.statuses) continue;
       out[item.key] = consultations.filter(
-        (c) => item.statuses!.includes(c.status) && !isOthersActive(c, doctor.id) && (!item.mine || c.prescriberId === doctor.id),
+        (c) =>
+          item.statuses!.includes(c.status) &&
+          (!doctor || (!isOthersActive(c, doctor.id) && (!item.mine || c.prescriberId === doctor.id))),
       ).length;
     }
     return out;
-  }, [rail, consultations, doctor.id]);
+  }, [rail, consultations, doctor]);
 
-  const ringing = consultations.find((c) => c.status === "ringing" && c.prescriberId === doctor.id);
+  const ringing = doctor && consultations.find((c) => c.status === "ringing" && c.prescriberId === doctor.id);
 
   return (
     <>
@@ -65,7 +69,7 @@ export default function PortalShell({ doctor, children }: { doctor: Doctor; chil
       >
         {children}
       </div>
-      <IncomingCall consult={ringing} doctorId={doctor.id} />
+      {doctor ? <IncomingCall consult={ringing || undefined} doctorId={doctor.id} /> : null}
     </>
   );
 }

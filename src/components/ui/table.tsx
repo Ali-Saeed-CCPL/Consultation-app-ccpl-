@@ -1,5 +1,5 @@
-/* The ERP's list table: mono uppercase 11px headers, hairline row rules,
-   first column in ink, hover in --sunken. */
+/* The list table shared by every portal: a tinted header band (uppercase 11.5px),
+   hairline row rules, 14px row padding, first column in ink, hover in --sunken. */
 
 import type { ReactNode } from "react";
 
@@ -12,7 +12,7 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
             {head.map((h, i) => (
               <th
                 key={i}
-                className="whitespace-nowrap border-b border-[var(--line)] px-4 py-3 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--mute)]"
+                className="whitespace-nowrap border-b border-[var(--line)] bg-[var(--sunken)] px-4 py-2.5 text-start text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[var(--mute)]"
               >
                 {h}
               </th>
@@ -37,7 +37,7 @@ export function Row({ children, onClick }: { children: ReactNode; onClick?: () =
 export function Cell({ children, mono, strong, className = "" }: { children: ReactNode; mono?: boolean; strong?: boolean; className?: string }) {
   return (
     <td
-      className={`px-4 py-3 align-middle ${mono ? "font-mono text-[12.5px]" : ""} ${strong ? "font-semibold text-[var(--ink)]" : "text-[var(--body)]"} ${className}`}
+      className={`px-4 py-3.5 align-middle ${mono ? "whitespace-nowrap font-mono text-[12.5px]" : ""} ${strong ? "font-semibold text-[var(--ink)]" : "text-[var(--body)]"} ${className}`}
     >
       {children}
     </td>

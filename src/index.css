@@ -5,11 +5,19 @@
    to the :root block below; only the naming differs. */
 @import "./styles/tokens.css";
 
-/* The families src/main.tsx loads from @fontsource. Bound here so the rest of
-   the sheet keeps addressing them through the same two variables it always has. */
+/* The family src/main.tsx loads from @fontsource. Manrope fills both roles —
+   text and the "mono" slots (numbers, times, refs) — so figures read as part of
+   the UI rather than as code. The two variable names stay, so the rest of the
+   sheet addresses them as it always has. */
 :root {
-  --font-instrument-sans: "Instrument Sans Variable";
-  --font-ibm-plex-mono: "IBM Plex Mono";
+  --font-instrument-sans: "Manrope Variable";
+  --font-ibm-plex-mono: "Manrope Variable";
+}
+
+/* Tabular figures everywhere: numbers keep one width, so times, counts and
+   refs line up in tables, KPIs and timers instead of jittering. */
+body {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Every number input app-wide reads as a plain typed field, not a counter —
@@ -47,7 +55,7 @@ input[type="number"]::-webkit-inner-spin-button {
   --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
 
   --color-teal: #2d6fc8;
-  --color-teal-deep: #2d6fc8;
+  --color-teal-deep: #163463;
   --color-teal-tint: #e6f0fb;
 
   --color-indigo: #2d6fc8;
@@ -77,20 +85,20 @@ input[type="number"]::-webkit-inner-spin-button {
   --color-link: #2d6fc8;
   --color-tint: #e6f0fb;
 
-  --color-ink: #1f2329;
-  --color-body: #474d55;
-  --color-mute: #5f666e;
-  --color-faint: #a0a5ab;
+  --color-ink: #18202f;
+  --color-body: #404a5a;
+  --color-mute: #667085;
+  --color-faint: #98a2b3;
 
-  --color-line: #dde8f5;
-  --color-hair: #edf3fb;
-  --color-canvas: #f5f9fe;
+  --color-line: #e1e6ee;
+  --color-hair: #edf0f5;
+  --color-canvas: #f4f6fa;
   --color-white: #ffffff;
 }
 
 :root {
   --teal: #2d6fc8;
-  --teal-deep: #2d6fc8;
+  --teal-deep: #163463;
   --teal-tint: #e6f0fb;
 
   --primary: #cfe4fb;
@@ -98,8 +106,8 @@ input[type="number"]::-webkit-inner-spin-button {
   --sky-200: #c9dff7;
   --sky-300: #93b4dc;
   --link: #2d6fc8;
-  --sunken: #eef5fd;
-  --border-input: #80868e;
+  --sunken: #eff2f7;
+  --border-input: #c2cad6;
 
   --indigo: #2d6fc8;
   --indigo-tint: #e6f0fb;
@@ -121,15 +129,20 @@ input[type="number"]::-webkit-inner-spin-button {
   --gold-deep: #b9d7f8;
   --gold-tint: #e6f0fb;
 
-  --ink: #1f2329;
-  --body: #474d55;
-  --mute: #5f666e;
-  --faint: #a0a5ab;
+  --ink: #18202f;
+  --body: #404a5a;
+  --mute: #667085;
+  --faint: #98a2b3;
 
-  --line: #dde8f5;
-  --hair: #edf3fb;
-  --canvas: #f5f9fe;
+  --line: #e1e6ee;
+  --hair: #edf0f5;
+  --canvas: #f4f6fa;
   --white: #ffffff;
+
+  /* solid action fill — primary buttons and the brand cards (same blue, legible in both themes) */
+  --action: #2d6fc8;
+  --action-hover: #245ca8;
+  --navy: #163463;
 
   --accent: var(--teal);
   --tint: var(--teal-tint);
@@ -309,15 +322,39 @@ html,.rail,.content{scrollbar-width:thin;scrollbar-color:#dde8f5 transparent}
 
 /* In the components layer so Tailwind utilities (pl-9, py-2, text-[13px]) can adjust them. */
 @layer components {
+  /* The type scale every portal shares: one page title, one section title. */
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--teal-deep);
+  }
+  .section-title {
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.35;
+    color: var(--ink);
+  }
+  /* 40px like every button (input:not(textarea)); textareas keep the padding and grow. */
   .field-input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 12px;
+    line-height: 20px;
     border: 1px solid var(--border-input);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     background: var(--white);
     font-family: inherit;
     font-size: 14px;
     color: var(--ink);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .field-input:hover:not(:focus):not(:disabled) {
+    border-color: var(--sky-300);
+  }
+  .field-input:disabled {
+    background: var(--sunken);
+    color: var(--mute);
   }
   .field-input:focus {
     outline: 0;
@@ -330,8 +367,8 @@ html,.rail,.content{scrollbar-width:thin;scrollbar-color:#dde8f5 transparent}
   .field-label {
     display: block;
     font-size: 12.5px;
-    font-weight: 500;
-    color: var(--body);
+    font-weight: 600;
+    color: var(--ink);
     margin-bottom: 6px;
   }
 }
@@ -380,8 +417,22 @@ html,.rail,.content{scrollbar-width:thin;scrollbar-color:#dde8f5 transparent}
   color: #f1f4fa;
 }
 
+/* AI assist at work — a listening waveform, a typing caret, a "thinking" shimmer
+   line, and a soft glow on whatever the AI is writing into. */
+.ai-wave { display: inline-flex; align-items: center; gap: 2px; height: 14px; }
+.ai-wave i { width: 3px; height: 100%; border-radius: 2px; background: currentColor; animation: ai-wave 0.9s ease-in-out infinite; transform-origin: center; }
+.ai-wave i:nth-child(2) { animation-delay: 0.15s; }
+.ai-wave i:nth-child(3) { animation-delay: 0.3s; }
+.ai-wave i:nth-child(4) { animation-delay: 0.45s; }
+@keyframes ai-wave { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+.ai-caret::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-inline-start: 2px; vertical-align: -2px; background: var(--action); animation: live-dot 0.8s steps(1) infinite; }
+.ai-shimmer { height: 10px; border-radius: 6px; background: linear-gradient(90deg, var(--sunken) 0%, var(--tint) 40%, var(--sunken) 80%); background-size: 200% 100%; animation: ai-shimmer 1.4s linear infinite; }
+@keyframes ai-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.ai-glow { animation: ai-glow 1.6s ease-in-out infinite; }
+@keyframes ai-glow { 0%, 100% { box-shadow: 0 0 0 1px var(--sky-300), 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 1px var(--action), 0 0 18px 2px color-mix(in srgb, var(--action) 28%, transparent); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .ring-halo, .live-dot, .line-in, .tag-ring, .phone-wiggle, .pulse-dot { animation: none !important; }
+  .ring-halo, .live-dot, .line-in, .tag-ring, .phone-wiggle, .pulse-dot, .ai-wave i, .ai-caret::after, .ai-shimmer, .ai-glow { animation: none !important; }
 }
 
 /* Journey lane chips — from the ERP's V4 component layer. */

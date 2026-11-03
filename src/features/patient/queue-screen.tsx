@@ -4,10 +4,10 @@
 
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import { CalendarClock, Check, Clock, LoaderCircle, PhoneCall, Stethoscope, Users } from "lucide-react";
+import { Check, Clock, LoaderCircle, PhoneCall, Stethoscope, Users } from "lucide-react";
 import Avatar from "@/components/ui/avatar";
-import PatientStep, { SecondaryAction } from "@/features/patient/patient-step";
-import { CLINIC_HOURS, fmtDateTime, isClinicOpen, nextOpening } from "@/lib/clinic";
+import PatientStep from "@/features/patient/patient-step";
+import { CLINIC_HOURS, isClinicOpen } from "@/lib/clinic";
 import { useT } from "@/lib/i18n";
 import { useConsult, usePlatform } from "@/store/consult-store";
 import { useSession } from "@/store/session-store";
@@ -25,7 +25,7 @@ export default function QueueScreen() {
   const consultations = usePlatform((s) => s.consultations);
   const forceOpen = usePlatform((s) => s.forceClinicOpen);
   const autoConnect = usePlatform((s) => s.autoConnect);
-  const { chooseCallback, rejoinQueue, leaveQueue, demoConnect } = usePlatform.getState();
+  const { leaveQueue, demoConnect } = usePlatform.getState();
 
   const status = consult?.status;
   useEffect(() => {
@@ -44,13 +44,11 @@ export default function QueueScreen() {
 
   if (!consult || !phone) return <Navigate to="/patient/choose" />;
   if (["drafting", "approved"].includes(consult.status)) return <Navigate to="/patient/call" />;
-  if (!["queued", "ringing", "callback", "in_call"].includes(consult.status)) return <Navigate to="/patient/choose" />;
+  if (!["queued", "ringing", "in_call"].includes(consult.status)) return <Navigate to="/patient/choose" />;
 
-  const callbackAt = open ? Date.now() + 30 * 60_000 : nextOpening();
   const position =
     consultations.filter((c) => c.status === "queued" && c.createdAt <= consult.createdAt).length || 1;
   const doctor = doctors.find((d) => d.id === consult.prescriberId);
-  const prettyPhone = `${phone.slice(0, 4)} ${phone.slice(4)}`;
 
   if (connecting) {
     return (
@@ -81,36 +79,6 @@ export default function QueueScreen() {
     );
   }
 
-  if (consult.status === "callback") {
-    return (
-      <PatientStep
-        step="queue"
-        title={t("callbackSet")}
-        lede={t("callbackSetSub", { phone: prettyPhone, time: fmtDateTime(consult.callbackAt ?? callbackAt) })}
-        footer={
-          <>
-            {open ? <SecondaryAction onClick={() => rejoinQueue(consult.id)}>{t("waitInstead")}</SecondaryAction> : null}
-            <SecondaryAction
-              onClick={() => {
-                leaveQueue(consult.id);
-                navigate({ to: "/patient/choose" });
-              }}
-            >
-              {t("leaveQueue")}
-            </SecondaryAction>
-          </>
-        }
-      >
-        <div className="flex items-center gap-3 rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-5">
-          <CalendarClock size={26} className="text-[var(--link)]" />
-          <span className="font-mono text-[15px] font-semibold text-[var(--ink)]" dir="ltr">
-            {fmtDateTime(consult.callbackAt ?? callbackAt)}
-          </span>
-        </div>
-      </PatientStep>
-    );
-  }
-
   return (
     <PatientStep
       step="queue"
@@ -123,7 +91,6 @@ export default function QueueScreen() {
               <span className="live-dot !bg-[var(--amber)]" /> {t("keepWaiting")}
             </p>
           ) : null}
-          <SecondaryAction onClick={() => chooseCallback(consult.id, callbackAt)}>{t("callMeBack", { time: fmtDateTime(callbackAt) })}</SecondaryAction>
           <button
             type="button"
             onClick={() => {

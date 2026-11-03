@@ -40,11 +40,11 @@ export default function NotesRxEditor({
         </label>
         <label>
           <span className="field-label">Plan / advice *</span>
-          <textarea className="field-input min-h-[88px] resize-y" value={notes.plan} disabled={disabled} onChange={(e) => setNote("plan", e.target.value)} />
+          <textarea className="field-input min-h-[72px] resize-y" value={notes.plan} disabled={disabled} onChange={(e) => setNote("plan", e.target.value)} />
         </label>
         <label>
           <span className="field-label">Follow-up</span>
-          <textarea className="field-input min-h-[88px] resize-y" value={notes.followUp} disabled={disabled} onChange={(e) => setNote("followUp", e.target.value)} />
+          <textarea className="field-input min-h-[72px] resize-y" value={notes.followUp} disabled={disabled} onChange={(e) => setNote("followUp", e.target.value)} />
         </label>
       </div>
 
@@ -60,18 +60,29 @@ export default function NotesRxEditor({
         {rx.length === 0 ? (
           <p className="rounded-(--radius-md) border border-dashed border-[var(--sky-200)] px-3 py-4 text-center text-[12.5px] text-[var(--mute)]">No medicines — advice only.</p>
         ) : (
-          <div className="grid gap-2">
+          <div className="overflow-hidden rounded-(--radius-md) border border-[var(--line)]">
+            {/* Column names once, like a prescription pad — not repeated as placeholders in every row. */}
+            <div className="hidden grid-cols-[20px_1fr_32px] gap-2 bg-[var(--sunken)] px-2.5 py-1.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)] sm:grid">
+              <span />
+              <span className="grid grid-cols-[2fr_1fr_1.4fr_1fr] gap-2">
+                <span>Medicine</span>
+                <span>Dose</span>
+                <span>Frequency</span>
+                <span>Duration</span>
+              </span>
+            </div>
+            <div className="divide-y divide-[var(--hair)]">
             {rx.map((r, i) => (
-              <div key={r.id} className="grid grid-cols-[20px_1fr_auto] items-start gap-2 rounded-(--radius-md) border border-[var(--line)] bg-[var(--sunken)] p-2.5">
+              <div key={r.id} className="grid grid-cols-[20px_1fr_32px] items-start gap-2 px-2.5 py-2">
                 <span className="pt-2 font-mono text-[12px] text-[var(--faint)]">{i + 1}.</span>
-                <div className="grid gap-2 sm:grid-cols-[2fr_1fr_1.4fr_1fr]">
-                  <input className="field-input py-2 text-[13px]" placeholder="Medicine & strength" value={r.drug} disabled={disabled} onChange={(e) => setItem(r.id, "drug", e.target.value)} />
-                  <input className="field-input py-2 text-[13px]" placeholder="Dose" value={r.dose} disabled={disabled} onChange={(e) => setItem(r.id, "dose", e.target.value)} />
-                  <input className="field-input py-2 text-[13px]" placeholder="Frequency" value={r.frequency} disabled={disabled} onChange={(e) => setItem(r.id, "frequency", e.target.value)} />
-                  <input className="field-input py-2 text-[13px]" placeholder="Duration" value={r.duration} disabled={disabled} onChange={(e) => setItem(r.id, "duration", e.target.value)} />
+                <div className="grid gap-1.5 sm:grid-cols-[2fr_1fr_1.4fr_1fr]">
+                  <input className="field-input py-1.5 text-[13px] font-semibold" placeholder="Medicine & strength" value={r.drug} disabled={disabled} onChange={(e) => setItem(r.id, "drug", e.target.value)} />
+                  <input className="field-input py-1.5 text-[13px]" placeholder="Dose" value={r.dose} disabled={disabled} onChange={(e) => setItem(r.id, "dose", e.target.value)} />
+                  <input className="field-input py-1.5 text-[13px]" placeholder="Frequency" value={r.frequency} disabled={disabled} onChange={(e) => setItem(r.id, "frequency", e.target.value)} />
+                  <input className="field-input py-1.5 text-[13px]" placeholder="Duration" value={r.duration} disabled={disabled} onChange={(e) => setItem(r.id, "duration", e.target.value)} />
                   <input
-                    className="field-input py-2 text-[13px] sm:col-span-4"
-                    placeholder="Instructions (optional)"
+                    className="field-input border-transparent bg-transparent px-1 py-1 text-[12.5px] text-[var(--body)] shadow-none sm:col-span-4"
+                    placeholder="+ Instructions (optional)"
                     value={r.instructions}
                     disabled={disabled}
                     onChange={(e) => setItem(r.id, "instructions", e.target.value)}
@@ -82,7 +93,7 @@ export default function NotesRxEditor({
                     type="button"
                     aria-label={`Remove ${r.drug || "medicine"}`}
                     onClick={() => onChange(notes, rx.filter((x) => x.id !== r.id))}
-                    className="mt-1 flex h-8 w-8 items-center justify-center rounded-(--radius-md) text-[var(--mute)] hover:bg-[var(--red-tint)] hover:text-[var(--red)]"
+                    className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-(--radius-md) text-[var(--mute)] hover:bg-[var(--red-tint)] hover:text-[var(--red)]"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -91,6 +102,7 @@ export default function NotesRxEditor({
                 )}
               </div>
             ))}
+            </div>
           </div>
         )}
       </div>

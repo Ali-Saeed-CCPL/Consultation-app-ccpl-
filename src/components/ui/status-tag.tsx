@@ -4,7 +4,7 @@ import { STATUS_META } from "@/lib/clinic";
 import type { ConsultStatus } from "@/lib/types";
 
 /** Statuses that ring (pulse + shaking phone) or tick (blinking dot) while live. */
-const RINGS: ConsultStatus[] = ["ringing", "callback"];
+const RINGS: ConsultStatus[] = ["ringing"];
 const TICKS: ConsultStatus[] = ["queued", "in_call"];
 
 export default function StatusTag({ status }: { status: ConsultStatus }) {

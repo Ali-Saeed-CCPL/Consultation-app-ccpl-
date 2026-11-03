@@ -9,7 +9,8 @@ export const Route = createFileRoute('/portal')({
 
 function PortalLayout() {
   const doctor = useCurrentDoctor()
-  if (!doctor) return <Navigate to="/login" replace />
+  // Deactivated by the clinic admin → out at once, even mid-session.
+  if (!doctor || doctor.active === false) return <Navigate to="/login" replace />
   return (
     <PortalShell doctor={doctor}>
       <Outlet />

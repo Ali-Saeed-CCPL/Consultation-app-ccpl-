@@ -9,8 +9,9 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { AI_DRAFT, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS } from "@/data/seed";
+import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS } from "@/data/seed";
 import { isClinicOpen } from "@/lib/clinic";
+import { complaintText } from "@/lib/complaint";
 import type {
   AuditEvent,
   ClinicalNotes,
@@ -30,6 +31,9 @@ type Actor = Pick<AuditEvent, "actor" | "actorRole">;
 interface PlatformState {
   consultations: Consultation[];
   doctors: Doctor[];
+  /** Sign-ins the clinic admin created for doctors (the demo accounts are in data/seed.ts).
+      ponytail: plain demo store — ccpl-api auth replaces it; never real passwords here. */
+  logins: DoctorLogin[];
   audit: AuditEvent[];
   /** Demo switch: treat the clinic as open whatever the clock says. */
   forceClinicOpen: boolean;
@@ -41,23 +45,28 @@ interface PlatformState {
   startConsultation: (phone: string, member: Member, lang: Lang) => Consultation;
   giveConsent: (id: string) => void;
   submitSymptoms: (id: string, symptoms: Symptoms) => void;
-  chooseCallback: (id: string, at: number) => void;
-  rejoinQueue: (id: string) => void;
   leaveQueue: (id: string) => void;
 
   // doctor side
   setAvailability: (doctorId: string, available: boolean) => void;
   acceptCall: (id: string, doctorId: string) => void;
   declineCall: (id: string, doctorId: string) => void;
-  takeNext: (doctorId: string) => void;
   /** Demo auto-answer: put a waiting patient straight into a call with a GP. */
   demoConnect: (id: string) => void;
   appendTranscript: (id: string, line: Omit<TranscriptLine, "id" | "at">) => void;
+  /** The doctor opened an auto-answered call: their tab now plays the transcript, so only one tab writes the consult. */
+  claimTranscript: (id: string) => void;
   endCall: (id: string, doctorId: string) => void;
   saveDraft: (id: string, notes: ClinicalNotes, rx: RxItem[]) => void;
   /** The consulting doctor signs off the (AI-drafted, doctor-checked) prescription and it's released. */
   approve: (id: string, doctorId: string) => void;
   closeConsult: (id: string, doctorId: string) => void;
+
+  // admin side
+  /** Adds a GP to the roster (off the rota until they go available). Fails on a PMDC number already in use. */
+  addDoctor: (input: { name: string; pmdc: string; username: string; password: string }) => { ok: true; id: string } | { ok: false; error: string };
+  /** Edits a GP and their sign-in (a blank password keeps the current one). Deactivating also takes them off the rota. */
+  updateDoctor: (id: string, input: { name: string; pmdc: string; active: boolean; username: string; password: string }) => { ok: true } | { ok: false; error: string };
 
   setForceClinicOpen: (on: boolean) => void;
   setAutoConnect: (on: boolean) => void;
@@ -65,6 +74,28 @@ interface PlatformState {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+const ADMIN: Actor = { actor: "Clinic admin", actorRole: "admin" };
+export interface DoctorLogin {
+  doctorId: string;
+  username: string;
+  password: string;
+}
+
+/** Validates a doctor sign-in: username 3+ letters/digits/._-, unique across all accounts; password 6+
+    characters (required for a new login, blank keeps the old one). Returns the cleaned login or an error. */
+function checkLogin(others: DoctorLogin[], username: string, password: string, needPassword: boolean): { username: string; password: string } | string {
+  const u = username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,}$/.test(u)) return "Username: at least 3 characters — letters, numbers, dot, dash or underscore.";
+  if (DEMO_ACCOUNTS.some((a) => a.username === u) || others.some((l) => l.username === u)) return "That username is already taken.";
+  if ((needPassword || password) && password.length < 6) return "Password: at least 6 characters.";
+  return { username: u, password };
+}
+
+/** "Dr. Ayesha Khan" → "AK": skips the title, first and last names. */
+function initialsFrom(name: string) {
+  const parts = name.replace(/^dr\.?\s+/i, "").split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "DR";
+}
 const doctorName = (doctors: Doctor[], id?: string) => doctors.find((d) => d.id === id)?.name ?? "Unknown doctor";
 
 function nextId(consultations: Consultation[]): string {
@@ -84,7 +115,7 @@ function busyDoctors(consultations: Consultation[]): Set<string> {
  * who hasn't already let this patient's call go. Runs after every change
  * that can free a GP or add a patient.
  */
-function assign(state: Pick<PlatformState, "consultations" | "doctors" | "forceClinicOpen">, onlyDoctor?: string) {
+function assign(state: Pick<PlatformState, "consultations" | "doctors" | "forceClinicOpen">) {
   if (!state.forceClinicOpen && !isClinicOpen()) return { consultations: state.consultations, events: [] as AuditEvent[] };
   const busy = busyDoctors(state.consultations);
   const events: AuditEvent[] = [];
@@ -94,7 +125,7 @@ function assign(state: Pick<PlatformState, "consultations" | "doctors" | "forceC
   const rung = new Map<string, string>();
   for (const c of queue) {
     const gp = state.doctors.find(
-      (d) => d.available && !busy.has(d.id) && !c.declinedBy.includes(d.id) && (!onlyDoctor || d.id === onlyDoctor),
+      (d) => d.available && !busy.has(d.id) && !c.declinedBy.includes(d.id),
     );
     if (!gp) continue;
     busy.add(gp.id);
@@ -118,6 +149,7 @@ function seed() {
   return {
     consultations: SEED_CONSULTATIONS,
     doctors: DOCTORS,
+    logins: [] as DoctorLogin[],
     audit: SEED_AUDIT,
     forceClinicOpen: true,
     autoConnect: true,
@@ -136,9 +168,9 @@ export const usePlatform = create<PlatformState>()(
           audit: [...events, ...s.audit],
         }));
 
-      const runAssign = (onlyDoctor?: string) =>
+      const runAssign = () =>
         set((s) => {
-          const { consultations, events } = assign(s, onlyDoctor);
+          const { consultations, events } = assign(s);
           return { consultations, audit: [...events, ...s.audit] };
         });
 
@@ -185,15 +217,7 @@ export const usePlatform = create<PlatformState>()(
             );
             return;
           }
-          patch(id, { symptoms, status: "queued" }, event(id, patient(id), "Joined queue", symptoms.complaint));
-          runAssign();
-        },
-
-        chooseCallback: (id, at) =>
-          patch(id, { status: "callback", callbackAt: at, prescriberId: undefined }, event(id, patient(id), "Chose a call back", new Date(at).toLocaleString("en-PK"))),
-
-        rejoinQueue: (id) => {
-          patch(id, { status: "queued", declinedBy: [] }, event(id, patient(id), "Rejoined queue"));
+          patch(id, { symptoms, status: "queued" }, event(id, patient(id), "Joined queue", complaintText(symptoms)));
           runAssign();
         },
 
@@ -203,6 +227,7 @@ export const usePlatform = create<PlatformState>()(
         },
 
         setAvailability: (doctorId, available) => {
+          if (available && get().doctors.find((d) => d.id === doctorId)?.active === false) return;
           set((s) => ({
             doctors: s.doctors.map((d) => (d.id === doctorId ? { ...d, available } : d)),
             audit: [event("—", doctor(doctorId), available ? "Went available" : "Went unavailable"), ...s.audit],
@@ -222,8 +247,6 @@ export const usePlatform = create<PlatformState>()(
           runAssign();
         },
 
-        takeNext: (doctorId) => runAssign(doctorId),
-
         demoConnect: (id) => {
           const { consultations, doctors } = get();
           const c = consultations.find((x) => x.id === id);
@@ -242,6 +265,8 @@ export const usePlatform = create<PlatformState>()(
           );
         },
 
+        claimTranscript: (id) => patch(id, { autoAnswered: false }),
+
         appendTranscript: (id, line) =>
           set((s) => ({
             consultations: s.consultations.map((c) =>
@@ -251,29 +276,25 @@ export const usePlatform = create<PlatformState>()(
 
         endCall: (id, doctorId) => {
           const c = get().consultations.find((x) => x.id === id);
-          // AI assist drafts notes & prescription from the transcript, unless the doctor already wrote some.
-          const draftIt = Boolean(c?.scripted && !c.notes.diagnosis && !c.notes.plan && !c.rx.length);
-          patch(
-            id,
-            draftIt
-              ? { status: "drafting", callEndedAt: Date.now(), notes: { ...AI_DRAFT.notes }, rx: AI_DRAFT.rx.map((r) => ({ ...r, id: uid() })), aiDrafted: true }
-              : { status: "drafting", callEndedAt: Date.now() },
-            ...(draftIt ? [event(id, { actor: "AI assist", actorRole: "ai" }, "Drafted notes & prescription", "From the call transcript — for the doctor to check")] : []),
-            event(id, doctor(doctorId), "Ended call", "Transcript saved"),
-          );
+          // The prescription is approved during the call, so a call only ends once it's released —
+          // there is no "awaiting approval" after the call.
+          if (!c?.approvedAt) return;
+          patch(id, { status: "approved", callEndedAt: Date.now() }, event(id, doctor(doctorId), "Ended call", "Transcript saved"));
           runAssign();
         },
 
-        saveDraft: (id, notes, rx) => patch(id, { notes, rx }),
+        // An edit after a live release takes it back: the doctor overwrites by approving again (next version).
+        saveDraft: (id, notes, rx) =>
+          patch(id, get().consultations.find((x) => x.id === id)?.status === "in_call" ? { notes, rx, approvedAt: undefined } : { notes, rx }),
 
         approve: (id, doctorId) => {
           const c = get().consultations.find((x) => x.id === id);
-          // Only the consulting doctor signs their own consultation's prescription.
-          if (!c || c.status !== "drafting" || c.prescriberId !== doctorId) return;
+          // Only the consulting doctor signs their own consultation's prescription — during the call or after it.
+          if (!c || !["in_call", "drafting"].includes(c.status) || c.prescriberId !== doctorId) return;
           const version = c.rxVersion + 1;
           patch(
             id,
-            { status: "approved", rxVersion: version, approvedAt: Date.now(), aiDrafted: false },
+            { status: c.status === "in_call" ? "in_call" : "approved", rxVersion: version, approvedAt: Date.now(), aiDrafted: false },
             event(id, { actor: "Platform", actorRole: "platform" }, "Prescription released to patient", "Portal + email"),
             event(id, doctor(doctorId), `Approved prescription v${version}`, c.aiDrafted ? "AI draft checked by the doctor" : undefined),
           );
@@ -281,6 +302,38 @@ export const usePlatform = create<PlatformState>()(
 
         closeConsult: (id, doctorId) =>
           patch(id, { status: "closed", closedAt: Date.now() }, event(id, doctor(doctorId), "Closed consultation", "Status, follow-up and audit complete")),
+
+        addDoctor: ({ name, pmdc, username, password }) => {
+          const clean = { name: name.trim(), pmdc: pmdc.trim() };
+          if (get().doctors.some((d) => d.pmdc.toLowerCase() === clean.pmdc.toLowerCase())) return { ok: false, error: "A doctor with this PMDC number already exists." };
+          const login = checkLogin(get().logins, username, password, true);
+          if (typeof login === "string") return { ok: false, error: login };
+          const id = `d-${uid()}`;
+          set((s) => ({
+            doctors: [...s.doctors, { id, name: clean.name, initials: initialsFrom(clean.name), pmdc: clean.pmdc, role: "gp", available: false, active: true }],
+            logins: [...s.logins, { doctorId: id, ...login }],
+            audit: [event("—", ADMIN, "Added doctor", `${clean.name} · ${clean.pmdc}`), ...s.audit],
+          }));
+          return { ok: true, id };
+        },
+
+        updateDoctor: (id, { name, pmdc, active, username, password }) => {
+          const clean = { name: name.trim(), pmdc: pmdc.trim() };
+          if (get().doctors.some((d) => d.id !== id && d.pmdc.toLowerCase() === clean.pmdc.toLowerCase())) return { ok: false, error: "Another doctor already has this PMDC number." };
+          const current = get().logins.find((l) => l.doctorId === id);
+          // A doctor without an admin-made sign-in can be edited without giving one (both fields blank).
+          const keepNone = !current && !username.trim() && !password;
+          const login = keepNone ? null : checkLogin(get().logins.filter((l) => l.doctorId !== id), username, password, !current);
+          if (typeof login === "string") return { ok: false, error: login };
+          set((s) => ({
+            logins: login ? [...s.logins.filter((l) => l.doctorId !== id), { doctorId: id, username: login.username, password: login.password || current!.password }] : s.logins,
+            doctors: s.doctors.map((d) =>
+              d.id === id ? { ...d, name: clean.name, initials: initialsFrom(clean.name), pmdc: clean.pmdc, active, available: active ? d.available : false } : d,
+            ),
+            audit: [event("—", ADMIN, active ? "Edited doctor" : "Deactivated doctor", `${clean.name} · ${clean.pmdc}`), ...s.audit],
+          }));
+          return { ok: true };
+        },
 
         setForceClinicOpen: (on) => {
           set({ forceClinicOpen: on });
@@ -295,12 +348,29 @@ export const usePlatform = create<PlatformState>()(
     {
       name: STORE_KEY,
       // v2 dropped the second-doctor review (in_review / changes); older demo data is re-seeded.
-      version: 2,
-      migrate: (persisted, from) => (from < 2 ? seed() : persisted) as PlatformState,
+      // v3 dropped approval after the call: any consultation left waiting ("drafting") is released as it stands.
+      version: 5,
+      migrate: (persisted, from) => {
+        if (from < 2) return seed() as PlatformState;
+        const s = persisted as PlatformState;
+        const now = Date.now();
+        return {
+          ...s,
+          consultations: s.consultations.map((c) =>
+            c.status === "drafting"
+              ? { ...c, status: "approved", approvedAt: c.callEndedAt ?? now, rxVersion: Math.max(1, c.rxVersion), aiDrafted: false }
+              : // v5: there are no call backs — patients call in and wait for the next free GP.
+                (c.status as string) === "callback"
+                ? { ...c, status: "queued" }
+                : c,
+          ),
+        } as PlatformState;
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         consultations: s.consultations,
         doctors: s.doctors,
+        logins: s.logins,
         audit: s.audit,
         forceClinicOpen: s.forceClinicOpen,
         autoConnect: s.autoConnect,

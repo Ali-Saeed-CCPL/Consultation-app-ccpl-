@@ -5,10 +5,12 @@
 import type { AuditEvent, Consultation, Doctor, Household, Member, TranscriptLine } from "@/lib/types";
 
 /** Prototype sign-in (features/auth/login-screen.tsx) until ccpl-api auth is wired in.
-    The patient account opens the demo household; the doctor account is Dr. Ayesha Khan. */
+    The patient account opens the demo household; the doctor account is Dr. Ayesha Khan;
+    the admin account oversees the clinic (every doctor, schedule and the audit log). */
 export const DEMO_ACCOUNTS = [
   { username: "patient", password: "123", role: "patient", label: "Patient view" },
   { username: "doctor", password: "123", role: "doctor", doctorId: "d-ayesha", label: "Doctor view" },
+  { username: "admin", password: "123", role: "admin", label: "Admin view" },
 ] as const;
 
 export const HOUSEHOLD: Household = {
@@ -133,10 +135,9 @@ export const SEED_CONSULTATIONS: Consultation[] = [
     householdPhone: "03334445555",
     member: other("x-nadia", "Nadia Perveen", "نادیہ پروین", 27, "F", "CTG-311902"),
     lang: "en",
-    status: "callback",
+    status: "queued",
     createdAt: ago(48),
     consentAt: ago(48),
-    callbackAt: now + 50 * MIN,
     symptoms: { complaint: "skin", duration: "4-7d", severity: 3, details: "Itchy rash on both forearms.", redFlags: [] },
     declinedBy: [],
     transcript: [],
@@ -149,7 +150,7 @@ export const SEED_CONSULTATIONS: Consultation[] = [
     householdPhone: "03007778888",
     member: other("x-faisal", "Faisal Qureshi", "فیصل قریشی", 52, "M", "CTG-118734"),
     lang: "en",
-    status: "drafting",
+    status: "approved",
     createdAt: ago(64),
     consentAt: ago(63),
     symptoms: { complaint: "headache", duration: "4-7d", severity: 6, details: "Morning headaches, BP 150/95 at home.", redFlags: [] },
@@ -170,15 +171,15 @@ export const SEED_CONSULTATIONS: Consultation[] = [
     rx: [
       { id: "rx1", drug: "Amlodipine 5 mg tablet", dose: "1 tablet", frequency: "Once daily, morning", duration: "30 days", instructions: "Do not stop without advice." },
     ],
-    rxVersion: 0,
-    aiDrafted: true,
+    rxVersion: 1,
+    approvedAt: ago(50),
   },
   {
     id: "DC-24112",
     householdPhone: "03451239876",
     member: other("x-hira", "Hira Siddiqui", "حرا صدیقی", 24, "F", "CTG-402215"),
     lang: "ur",
-    status: "drafting",
+    status: "approved",
     createdAt: ago(41),
     consentAt: ago(40),
     symptoms: { complaint: "other", duration: "1-3d", severity: 4, details: "Burning when passing urine.", redFlags: [] },
@@ -199,8 +200,8 @@ export const SEED_CONSULTATIONS: Consultation[] = [
     rx: [
       { id: "rx1", drug: "Nitrofurantoin 100 mg capsule", dose: "1 capsule", frequency: "Twice daily", duration: "5 days", instructions: "With food." },
     ],
-    rxVersion: 0,
-    aiDrafted: true,
+    rxVersion: 1,
+    approvedAt: ago(28),
   },
   {
     id: "DC-24101",
@@ -266,33 +267,7 @@ export const SEED_AUDIT: AuditEvent[] = [
   { id: "a5", at: ago(94), consultId: "DC-24104", actor: "Platform", actorRole: "platform", action: "Red flag — emergency guidance shown", detail: "Chest pain or pressure" },
   { id: "a6", at: ago(44), consultId: "DC-24109", actor: "AI assist", actorRole: "ai", action: "Drafted notes & prescription", detail: "From the call transcript — for the doctor to check" },
   { id: "a7", at: ago(25), consultId: "DC-24112", actor: "AI assist", actorRole: "ai", action: "Drafted notes & prescription", detail: "From the call transcript — for the doctor to check" },
-  { id: "a8", at: ago(48), consultId: "DC-24118", actor: "Nadia Perveen", actorRole: "patient", action: "Chose a call back", detail: "Next free slot" },
+  { id: "a8", at: ago(48), consultId: "DC-24118", actor: "Nadia Perveen", actorRole: "patient", action: "Joined queue", detail: "Skin rash" },
   { id: "a9", at: ago(9), consultId: "DC-24117", actor: "Dr. Bilal Ahmed", actorRole: "doctor", action: "Accepted call", detail: "Video consult started" },
 ];
-
-/** Calls booked for today — follow-ups the GPs set and call backs patients chose.
-    Times are on the clinic's clock; the dashboard places them on today's date. */
-export interface ScheduledCall {
-  id: string;
-  name: string;
-  at: [hour: number, minute: number];
-  kind: "Follow-up" | "Call back";
-  doctorId: string;
-  reason: string;
-}
-
-export const SCHEDULED_TODAY: ScheduledCall[] = [
-  { id: "S-301", name: "Rashid Mehmood", at: [9, 15], kind: "Follow-up", doctorId: "d-ayesha", reason: "BP review" },
-  { id: "S-302", name: "Farah Naz", at: [9, 40], kind: "Call back", doctorId: "d-bilal", reason: "Sore throat" },
-  { id: "S-303", name: "Imran Siddiqui", at: [10, 20], kind: "Follow-up", doctorId: "d-bilal", reason: "Diabetes labs" },
-  { id: "S-304", name: "Kiran Javed", at: [10, 45], kind: "Follow-up", doctorId: "d-ayesha", reason: "Antibiotic course check" },
-  { id: "S-305", name: "Shahid Latif", at: [11, 30], kind: "Call back", doctorId: "d-ayesha", reason: "Back pain" },
-  { id: "S-306", name: "Ayesha Raza", at: [12, 10], kind: "Follow-up", doctorId: "d-bilal", reason: "Thyroid results" },
-  { id: "S-307", name: "Naveed Akhtar", at: [12, 40], kind: "Call back", doctorId: "d-bilal", reason: "Fever" },
-  { id: "S-308", name: "Mehwish Ali", at: [14, 0], kind: "Follow-up", doctorId: "d-ayesha", reason: "Asthma inhaler review" },
-  { id: "S-309", name: "Tariq Jamil", at: [14, 30], kind: "Call back", doctorId: "d-bilal", reason: "Ear pain" },
-  { id: "S-310", name: "Saima Khalid", at: [15, 15], kind: "Follow-up", doctorId: "d-ayesha", reason: "Pregnancy nausea" },
-  { id: "S-311", name: "Zubair Hassan", at: [16, 0], kind: "Follow-up", doctorId: "d-bilal", reason: "Wound check" },
-  { id: "S-312", name: "Rabia Anwar", at: [16, 45], kind: "Call back", doctorId: "d-ayesha", reason: "Headache" },
-  { id: "S-313", name: "Kamran Yousaf", at: [17, 20], kind: "Follow-up", doctorId: "d-bilal", reason: "Cholesterol plan" },
-];
+

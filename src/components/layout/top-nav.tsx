@@ -11,7 +11,7 @@ import ThemeToggle from "@/components/common/theme-toggle";
 import NotificationBell from "@/components/layout/notification-bell";
 import UserMenu from "@/components/layout/user-menu";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
-import { PORTAL_MODULES } from "@/config/navigation";
+import { ADMIN_MODULES, PORTAL_MODULES } from "@/config/navigation";
 import { usePlatform } from "@/store/consult-store";
 import { useSession } from "@/store/session-store";
 import type { Doctor } from "@/lib/types";
@@ -19,8 +19,11 @@ import type { Doctor } from "@/lib/types";
 /** Combined height of the header: the 3px brand hairline + both rows. */
 export const CHROME_H = 109;
 
-export default function TopNav({ doctor }: { doctor: Doctor }) {
+/** With a doctor it's the doctor portal; without one, the clinic admin's portal (no availability, no call alerts). */
+export default function TopNav({ doctor }: { doctor?: Doctor }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const base = doctor ? "/portal" : "/admin";
+  const modules = doctor ? PORTAL_MODULES : ADMIN_MODULES;
   const navigate = useNavigate();
   const doctors = usePlatform((s) => s.doctors);
   const setAvailability = usePlatform((s) => s.setAvailability);
@@ -34,14 +37,15 @@ export default function TopNav({ doctor }: { doctor: Doctor }) {
       <BrandHairline />
       {/* Row 1 — white chrome */}
       <div className="flex items-center gap-4 h-[62px] px-6 bg-[var(--chrome)] border-b border-[var(--line)]">
-        <Link to="/portal/dashboard" className="flex items-center gap-3 flex-shrink-0">
+        <Link to={`${base}/dashboard`} className="flex items-center gap-3 flex-shrink-0">
           <img src={LOGO_SRC} alt={BRAND} className="h-[34px] w-auto" />
           <span className="hidden md:block text-[15px] font-semibold tracking-tight text-[var(--ink)]">{APP_NAME}</span>
           <span className="hidden lg:inline-flex font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--mute)] border border-[var(--line)] rounded-(--radius-pill) px-2 py-0.5">
-            Doctor portal
+            {doctor ? "Doctor portal" : "Admin portal"}
           </span>
         </Link>
 
+        {doctor ? (
         <div className="flex items-center gap-2.5 ml-auto flex-shrink-0">
           {/* Availability — a GP only gets rung while available. */}
           <button
@@ -67,7 +71,6 @@ export default function TopNav({ doctor }: { doctor: Doctor }) {
             role="GP"
             items={[
               { label: "My profile", onClick: () => toast("Doctor profiles come with ccpl-api.") },
-              { label: "My activity", to: "/portal/audit" },
               {
                 label: "Reset demo data",
                 onClick: () => {
@@ -82,7 +85,7 @@ export default function TopNav({ doctor }: { doctor: Doctor }) {
                   Switch doctor (demo)
                 </p>
                 {doctors
-                  .filter((d) => d.id !== doctor.id)
+                  .filter((d) => d.id !== doctor.id && d.active !== false)
                   .map((d) => (
                     <button
                       key={d.id}
@@ -106,26 +109,45 @@ export default function TopNav({ doctor }: { doctor: Doctor }) {
             }}
           />
         </div>
+        ) : (
+          <div className="flex items-center gap-2.5 ml-auto flex-shrink-0">
+            <ThemeToggle />
+            <UserMenu
+              initials="CA"
+              name="Clinic admin"
+              id={username ?? "admin"}
+              role="Admin"
+              items={[
+                {
+                  label: "Reset demo data",
+                  onClick: () => {
+                    resetDemo();
+                    toast.success("Demo data reset");
+                  },
+                },
+              ]}
+              onSignOut={() => {
+                signOut();
+                navigate({ to: "/login" });
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Row 2 — module band */}
       <nav
-        className="flex items-center gap-5 h-11 px-6 overflow-x-auto"
-        style={{ background: "var(--chrome)", borderTop: "1px solid var(--line)" }}
+        className="nav-band flex items-center gap-6 h-11 px-6 overflow-x-auto"
         aria-label="Modules"
       >
-        {PORTAL_MODULES.map(({ label, to, key }) => {
-          const isActive = pathname.startsWith(`/portal/${key}`);
+        {modules.map(({ label, to, key }) => {
+          const isActive = pathname.startsWith(`${base}/${key}`);
           return (
             <Link
               key={key}
               to={to}
-              className="flex items-center h-full text-[13px] whitespace-nowrap transition-colors"
-              style={{
-                color: isActive ? "var(--ink)" : "var(--mute)",
-                fontWeight: isActive ? 600 : 400,
-                borderBottom: `2px solid ${isActive ? "var(--link)" : "transparent"}`,
-              }}
+              data-active={isActive}
+              className="flex items-center h-full border-b-2 border-transparent text-[13px] whitespace-nowrap transition-colors"
             >
               {label}
             </Link>

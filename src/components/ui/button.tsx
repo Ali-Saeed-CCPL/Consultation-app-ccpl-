@@ -10,7 +10,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "border border-(--color-sky-300) bg-(--color-primary) text-(--color-ink) hover:bg-(--color-primary-hover)",
+    "btn-royal border border-transparent text-white",
   secondary:
     "border border-(--color-border-input) bg-(--color-surface) text-(--color-body) hover:bg-(--tint) hover:border-(--color-link)",
   danger:
@@ -18,8 +18,9 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
-  md: "px-4 py-[9.5px] text-[14px]",
-  sm: "px-3 py-[6.5px] text-[12.5px]",
+  // One control scale app-wide: 40px (md) and 34px (sm) — the same as inputs and the patient actions.
+  md: "h-10 px-4 text-[14px]",
+  sm: "h-[34px] px-3 text-[13px]",
 };
 
 export default function Button({
@@ -31,7 +32,7 @@ export default function Button({
 }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center gap-2 whitespace-nowrap rounded-(--radius-md) font-(family-name:--font-ui) font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:border-(--color-line) disabled:bg-(--color-surface-sunken) disabled:text-(--color-faint) disabled:hover:bg-(--color-surface-sunken) ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--radius-md) font-(family-name:--font-ui) font-semibold transition-all duration-150 disabled:cursor-not-allowed disabled:border-(--color-line) disabled:bg-(--color-surface-sunken) disabled:text-(--color-faint) disabled:hover:bg-(--color-surface-sunken) ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...rest}
     >
       {children}

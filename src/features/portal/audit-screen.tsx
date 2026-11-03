@@ -15,6 +15,7 @@ const ROLE_CLS: Record<AuditEvent["actorRole"], string> = {
   ai: "j-amber",
   doctor: "j-green",
   support: "j-red",
+  admin: "j-indigo",
 };
 
 export default function AuditScreen() {
@@ -34,31 +35,34 @@ export default function AuditScreen() {
       <PageHero
         crumb={[{ label: "Audit log" }]}
         title="Audit log"
-        sub="Append-only. Every sign-in, consultation started, consent, call, AI draft, approval and release is recorded."
       />
       <main className="p-6">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--mute)]" />
             <input
-              className="field-input w-[280px] py-2 pl-8 text-[13px]"
+              className="field-input w-full py-2 pl-8 text-[13px] sm:w-[280px]"
               placeholder="Search ref, person or action…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          {(["all", "patient", "platform", "ai", "doctor", "support"] as const).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              className={`rounded-(--radius-pill) border px-3 py-1.5 text-[12.5px] font-semibold capitalize ${
-                role === r ? "border-[var(--sky-300)] bg-[var(--primary)] text-[var(--ink)]" : "border-[var(--line)] bg-[var(--white)] text-[var(--mute)] hover:text-[var(--ink)]"
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+          <div role="tablist" className="flex flex-wrap gap-1 rounded-(--radius-pill) border border-[var(--line)] bg-[var(--white)] p-1 shadow-(--shadow-xs)">
+            {(["all", "patient", "platform", "ai", "doctor", "support", "admin"] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="tab"
+                aria-selected={role === r}
+                onClick={() => setRole(r)}
+                className={`rounded-(--radius-pill) px-3.5 py-1.5 text-[13px] font-semibold ${
+                  role === r ? "bg-[var(--action)] text-white" : "text-[var(--mute)] hover:text-[var(--ink)]"
+                }`}
+              >
+                {r === "ai" ? "AI" : r[0].toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
           <span className="ml-auto font-mono text-[12px] text-[var(--mute)]">{rows.length} events</span>
         </div>
         <Table head={["When", "Ref", "Actor", "Role", "Action", "Detail"]} empty={rows.length ? null : <EmptyRow>No events match.</EmptyRow>}>
@@ -69,7 +73,7 @@ export default function AuditScreen() {
               </Cell>
               <Cell mono strong>
                 {consultIds.has(e.consultId) ? (
-                  <Link to="/portal/consultations/$id" params={{ id: e.consultId }}>
+                  <Link to="/admin/consultations/$id" params={{ id: e.consultId }}>
                     {e.consultId}
                   </Link>
                 ) : (

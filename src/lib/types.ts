@@ -37,6 +37,8 @@ export interface Doctor {
   pmdc: string;
   role: DoctorRole;
   available: boolean;
+  /** Set by the clinic admin. An inactive doctor is off the rota and can't go available. Missing = active. */
+  active?: boolean;
 }
 
 export type ConsultStatus =
@@ -44,10 +46,9 @@ export type ConsultStatus =
   | "ineligible" // Centegy said no / couldn't verify — CCPL support follows up (cover check off for now; kept for old records)
   | "emergency" // red flags → sent to ER, never queued
   | "queued" // waiting for a free GP
-  | "callback" // patient chose a call back in the next slot
   | "ringing" // pushed to a GP's open portal
   | "in_call"
-  | "drafting" // call ended; AI drafted notes & prescription, the doctor checks, edits and approves
+  | "drafting" // legacy: approval after the call, retired — the store migrates any to "approved"
   | "approved" // released to the patient (portal + email)
   | "closed";
 
@@ -115,7 +116,6 @@ export interface Consultation {
   aiDrafted?: boolean;
   approvedAt?: number;
   closedAt?: number;
-  callbackAt?: number;
 }
 
 export interface AuditEvent {
@@ -123,7 +123,7 @@ export interface AuditEvent {
   at: number;
   consultId: string;
   actor: string;
-  actorRole: "patient" | "platform" | "ai" | "doctor" | "support";
+  actorRole: "patient" | "platform" | "ai" | "doctor" | "support" | "admin";
   action: string;
   detail?: string;
 }

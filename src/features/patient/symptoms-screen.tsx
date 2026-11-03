@@ -3,12 +3,13 @@
 
 import { useEffect, type ReactNode } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import { TriangleAlert } from "lucide-react";
+import { Brain, Check, CirclePlus, Hand, Soup, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
 import PatientStep, { PrimaryAction } from "@/features/patient/patient-step";
 import { COMPLAINTS, DURATIONS, RED_FLAGS } from "@/data/seed";
 import { pick, useT } from "@/lib/i18n";
 import { useConsult, usePlatform } from "@/store/consult-store";
 import { useIntakeDraft } from "@/store/intake-draft";
+import { complaintKeys } from "@/lib/complaint";
 import { useSession } from "@/store/session-store";
 
 export default function SymptomsScreen() {
@@ -29,12 +30,15 @@ export default function SymptomsScreen() {
 
   // Reachable from intake, and from emergency guidance ("ticked one by mistake").
   // Once submitted the status moves on, and the queue screen takes over.
-  if (consult && ["queued", "ringing", "callback", "in_call"].includes(consult.status)) return <Navigate to="/patient/queue" />;
+  if (consult && ["queued", "ringing", "in_call"].includes(consult.status)) return <Navigate to="/patient/queue" />;
   if (!consult || !consult.consentAt || !["intake", "emergency"].includes(consult.status)) return <Navigate to="/patient/choose" />;
 
   if (draftFor !== consult.id) return null;
 
-  const needsOther = complaint === "other";
+  const picked = complaintKeys(complaint);
+  const needsOther = picked.includes("other");
+  const toggleComplaint = (key: string) =>
+    patch({ complaint: (picked.includes(key) ? picked.filter((k) => k !== key) : [...picked, key]).join(",") });
   const ready = complaint && (!needsOther || other.trim()) && duration && redFlags !== null;
   const toggleFlag = (key: string) => {
     const list = redFlags ?? [];
@@ -54,20 +58,27 @@ export default function SymptomsScreen() {
     navigate({ to: redFlags!.length ? "/patient/emergency" : "/patient/queue" });
   };
 
+  // The answers the doctor needs before the queue (severity always has a value; details are optional).
+  const done = [Boolean(complaint && (!needsOther || other.trim())), Boolean(duration), true, redFlags !== null];
+  const answered = done.filter(Boolean).length;
+
   return (
     <PatientStep
       step="symptoms"
+      back="/patient/consent"
       title={t("sympTitle")}
-      lede={t("sympLede")}
       footer={
-        <PrimaryAction disabled={!ready} onClick={submit}>
-          {t("findDoctor")}
-        </PrimaryAction>
+        <>
+          <span className="font-mono text-[12.5px] text-[var(--mute)]">{t("answeredOf", { n: answered, total: done.length })}</span>
+          <PrimaryAction disabled={!ready} onClick={submit}>
+            {t("findDoctor")}
+          </PrimaryAction>
+        </>
       }
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <Question label={t("qComplaint")}>
-          <Chips options={COMPLAINTS.map((c) => ({ key: c.key, label: pick(c, lang) }))} value={complaint} onChange={(k) => patch({ complaint: k })} />
+        <Question n={1} label={t("qComplaint")} hint={t("pickAny")} done={done[0]}>
+          <Chips options={COMPLAINTS.map((c) => ({ key: c.key, label: pick(c, lang) }))} value={picked} onChange={toggleComplaint} multi />
           {needsOther ? (
             <label className="mt-3 block line-in">
               <span className="field-label">{t("qOther")} *</span>
@@ -82,10 +93,10 @@ export default function SymptomsScreen() {
             </label>
           ) : null}
         </Question>
-        <Question label={t("qDuration")}>
+        <Question n={2} label={t("qDuration")} hint={t("pickOne")} done={done[1]}>
           <Chips options={DURATIONS.map((d) => ({ key: d.key, label: pick(d, lang) }))} value={duration} onChange={(k) => patch({ duration: k })} />
         </Question>
-        <Question label={t("qSeverity")}>
+        <Question n={3} label={t("qSeverity")} done>
           <div className="flex items-center gap-3">
             <span className="text-[12.5px] text-[var(--mute)]">{t("mild")}</span>
             <input
@@ -103,72 +114,127 @@ export default function SymptomsScreen() {
             </span>
           </div>
         </Question>
-        <Question label={t("qDetails")}>
+        <Question n={4} label={t("qDetailsShort")} hint={t("optional")} done={Boolean(details.trim())}>
           <textarea className="field-input min-h-[56px] resize-y" value={details} onChange={(e) => patch({ details: e.target.value })} />
         </Question>
 
-        <div className="rounded-(--radius-card) border border-[var(--color-danger-border)] bg-[var(--white)] p-4 lg:col-span-2">
-          <p className="flex items-center gap-2 text-[14px] font-semibold text-[var(--ink)]">
-            <TriangleAlert size={16} className="text-[var(--red)]" /> {t("qRedFlags")}
-          </p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <Question n={5} label={t("qRedFlags")} hint={t("pickAny")} done={done[3]} danger className="lg:col-span-2">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {RED_FLAGS.map((f) => {
               const on = redFlags?.includes(f.key) ?? false;
               return (
                 <label
                   key={f.key}
                   className={`flex cursor-pointer items-center gap-3 rounded-(--radius-md) border px-3 py-2.5 text-[14px] ${
-                    on ? "border-[var(--red)] bg-[var(--red-tint)] text-[var(--color-red-ink)]" : "border-[var(--line)] text-[var(--body)]"
+                    on ? "border-[var(--red)] bg-[var(--red-tint)] font-semibold text-[var(--color-red-ink)]" : "border-[var(--line)] text-[var(--body)] hover:border-[var(--color-danger-border)]"
                   }`}
                 >
                   <input type="checkbox" className="h-4 w-4 accent-[var(--red)]" checked={on} onChange={() => toggleFlag(f.key)} />
+                  <TriangleAlert size={14} className={on ? "text-[var(--red)]" : "text-[var(--faint)]"} />
                   {pick(f, lang)}
                 </label>
               );
             })}
-            <label
-              className={`flex cursor-pointer items-center gap-3 rounded-(--radius-md) border px-3 py-2.5 text-[14px] font-semibold ${
-                redFlags?.length === 0 ? "border-[var(--green)] bg-[var(--green-tint)] text-[var(--color-green-ink)]" : "border-[var(--line)] text-[var(--ink)]"
-              }`}
-            >
-              <input type="checkbox" className="h-4 w-4 accent-[var(--green)]" checked={redFlags?.length === 0} onChange={() => patch({ redFlags: [] })} />
-              {t("noneOfThese")}
-            </label>
           </div>
-        </div>
+          {/* "None" is its own answer, set apart so it isn't read as one more symptom. */}
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={redFlags?.length === 0}
+            onClick={() => patch({ redFlags: [] })}
+            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-(--radius-md) border px-3 py-2.5 text-[14px] font-semibold ${
+              redFlags?.length === 0
+                ? "border-[var(--green)] bg-[var(--green-tint)] text-[var(--color-green-ink)]"
+                : "border-dashed border-[var(--line)] text-[var(--ink)] hover:border-[var(--green)]"
+            }`}
+          >
+            {redFlags?.length === 0 ? <Check size={16} /> : null} {t("noneOfThese")}
+          </button>
+        </Question>
       </div>
     </PatientStep>
   );
 }
 
-function Question({ label, children }: { label: string; children: ReactNode }) {
+function Question({
+  n,
+  label,
+  hint,
+  done,
+  danger,
+  className = "",
+  children,
+}: {
+  n: number;
+  label: string;
+  hint?: string;
+  done?: boolean;
+  danger?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4">
-      <p className="mb-3 text-[14px] font-semibold text-[var(--ink)]">{label}</p>
+    <div
+      className={`rounded-(--radius-card) border bg-[var(--white)] p-4 ${danger ? "border-[var(--color-danger-border)]" : done ? "border-[var(--sky-200)]" : "border-[var(--line)]"} ${className}`}
+    >
+      <div className="mb-3 flex items-center gap-2.5">
+        <span
+          className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full font-mono text-[12px] font-bold ${
+            done ? "bg-[var(--green)] text-white" : "bg-[var(--tint)] text-[var(--link)]"
+          }`}
+        >
+          {done ? <Check size={14} strokeWidth={3} /> : n}
+        </span>
+        <p className="min-w-0 flex-1 text-[14px] font-semibold text-[var(--ink)]">{label}</p>
+        {hint ? <span className="flex-shrink-0 text-[12px] text-[var(--mute)]">{hint}</span> : null}
+      </div>
       {children}
     </div>
   );
 }
 
-function Chips({ options, value, onChange }: { options: { key: string; label: string }[]; value: string; onChange: (k: string) => void }) {
+/** Icons for the complaint tiles, by complaint key. */
+const COMPLAINT_ICON: Record<string, LucideIcon> = { fever: Thermometer, cough: Wind, stomach: Soup, skin: Hand, headache: Brain, other: CirclePlus };
+
+/** Answer tiles: multi-select (complaints — the icon turns into a tick) or pick-one (a radio dot). */
+function Chips({ options, value, onChange, multi }: { options: { key: string; label: string }[]; value: string | string[]; onChange: (k: string) => void; multi?: boolean }) {
+  const on = (k: string) => (Array.isArray(value) ? value.includes(k) : value === k);
   return (
-    <div role="radiogroup" className="flex flex-wrap gap-2">
-      {options.map((o) => (
-        <button
-          key={o.key}
-          type="button"
-          role="radio"
-          aria-checked={value === o.key}
-          onClick={() => onChange(o.key)}
-          className={`rounded-(--radius-pill) border px-3.5 py-1.5 text-[13.5px] font-medium ${
-            value === o.key
-              ? "border-[var(--sky-300)] bg-[var(--primary)] text-[var(--ink)] font-semibold"
-              : "border-[var(--line)] bg-[var(--white)] text-[var(--body)] hover:border-[var(--sky-300)]"
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div role={multi ? "group" : "radiogroup"} className="grid grid-cols-2 gap-2">
+      {options.map((o) => {
+        const sel = on(o.key);
+        const Icon = multi ? COMPLAINT_ICON[o.key] : undefined;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role={multi ? "checkbox" : "radio"}
+            aria-checked={sel}
+            onClick={() => onChange(o.key)}
+            className={`group flex min-h-11 items-center gap-2.5 rounded-(--radius-md) border px-2.5 py-2 text-start text-[13.5px] transition-[border-color,background-color,box-shadow] duration-150 ${
+              sel
+                ? "border-[var(--action)] bg-[var(--tint)] font-semibold text-[var(--ink)] shadow-[0_0_0_1px_var(--action)]"
+                : "border-[var(--line)] bg-[var(--white)] font-medium text-[var(--body)] hover:border-[var(--sky-300)] hover:bg-[var(--sunken)]"
+            }`}
+          >
+            {Icon ? (
+              <span
+                className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-(--radius-sm) ${
+                  sel ? "bg-[var(--action)] text-white" : "bg-[var(--sunken)] text-[var(--link)] group-hover:bg-[var(--tint)]"
+                }`}
+              >
+                {sel ? <Check size={15} strokeWidth={3} /> : <Icon size={15} />}
+              </span>
+            ) : null}
+            <span className="min-w-0 flex-1 leading-tight">{o.label}</span>
+            {multi ? null : (
+              <span className={`flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border ${sel ? "border-[var(--action)]" : "border-[var(--color-border-input)]"}`}>
+                {sel ? <span className="h-2.5 w-2.5 rounded-full bg-[var(--action)]" /> : null}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -69,10 +69,7 @@ export default function PatientShell({ children }: { children: ReactNode }) {
                 name={lang === "ur" ? holder.nameUr : holder.name}
                 id={`${username ?? "patient"} · ${phone.slice(0, 4)} ${phone.slice(4)}`}
                 role={t("rolePolicyholder")}
-                items={[
-                  { label: t("navRecords"), to: "/patient/records" },
-                  { label: t("navNew"), to: "/patient/choose" },
-                ]}
+                items={[]}
                 signOutLabel={t("signOut")}
                 onSignOut={() => {
                   signOut();
@@ -83,25 +80,21 @@ export default function PatientShell({ children }: { children: ReactNode }) {
           </div>
         </div>
         {/* Row 2 — tab band */}
-        <nav className="flex h-11 items-center gap-6 overflow-x-auto border-b border-[var(--line)] px-6" aria-label="Sections">
+        <nav className="nav-band flex h-11 items-center gap-6 overflow-x-auto px-6" aria-label="Sections">
           {TABS.map((tab) => {
             const active = tab.active(pathname);
             return (
               <Link
                 key={tab.key}
                 to={tab.to}
-                className="flex h-full items-center whitespace-nowrap text-[13px] transition-colors"
-                style={{
-                  color: active ? "var(--ink)" : "var(--mute)",
-                  fontWeight: active ? 600 : 400,
-                  borderBottom: `2px solid ${active ? "var(--link)" : "transparent"}`,
-                }}
+                data-active={active}
+                className="flex h-full items-center whitespace-nowrap border-b-2 border-transparent text-[13px] transition-colors"
               >
                 {t(tab.key)}
               </Link>
             );
           })}
-          <span className="ms-auto hidden whitespace-nowrap text-[12px] text-[var(--mute)] md:block">{t("needHelp")}</span>
+          <span className="nav-band-note ms-auto hidden whitespace-nowrap text-[12px] md:block">{t("needHelp")}</span>
         </nav>
       </header>
       <main className="w-full px-4 pb-6 pt-6 sm:px-6">{children}</main>

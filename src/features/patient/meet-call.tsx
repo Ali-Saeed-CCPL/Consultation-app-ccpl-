@@ -10,10 +10,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Captions,
   CaptionsOff,
+  Download,
+  FileText,
   Info,
   Lock,
   Maximize2,
-  MessageSquareText,
   Mic,
   MicOff,
   Minimize2,
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { initialsOf } from "@/components/ui/avatar";
+import RxDocument, { downloadRx, rxLabels } from "@/features/consult/rx-document";
 import SelfVideo from "@/features/consult/self-video";
 import { useLocalMedia, type LocalMedia } from "@/features/consult/use-local-media";
 import { complaintText } from "@/lib/complaint";
@@ -33,16 +35,40 @@ import { useT } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
 import type { Consultation, Doctor, Lang, TranscriptLine } from "@/lib/types";
 
-type Panel = "captions" | "details" | null;
+// No transcript panel: the transcript is stored for the record, the patient only sees the on-video captions.
+type Panel = "rx" | "details" | null;
 
 export default function MeetCall({ consult, doctor, onLeave }: { consult: Consultation; doctor: Doctor; onLeave: () => void }) {
   const { t, lang } = useT();
   const now = useNow(1000);
   const media = useLocalMedia();
   const [cc, setCc] = useState(true);
-  const [panel, setPanel] = useState<Panel>("captions");
+  const [panel, setPanel] = useState<Panel>("rx");
+  const panels = ["rx", "details"] as const;
   const card = useRef<HTMLElement>(null);
+  const side = useRef<HTMLElement>(null);
   const { full, filled, toggle: toggleFull } = useFullscreen(card);
+  // The moment the doctor releases it, the prescription is put in front of the patient:
+  // out of full screen (which covers the panel), the tab opened, and scrolled into view
+  // (below xl the panel sits under the video).
+  useEffect(() => {
+    if (!consult.approvedAt) return;
+    if (full) toggleFull();
+    setPanel("rx");
+    // A tab in the background doesn't scroll, so wait until the patient is looking at it.
+    let id = 0;
+    const reveal = () => {
+      if (document.hidden) return;
+      document.removeEventListener("visibilitychange", reveal);
+      id = window.setTimeout(() => side.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 150);
+    };
+    document.addEventListener("visibilitychange", reveal);
+    reveal();
+    return () => {
+      document.removeEventListener("visibilitychange", reveal);
+      window.clearTimeout(id);
+    };
+  }, [consult.approvedAt]); // eslint-disable-line react-hooks/exhaustive-deps -- once per release
 
   const last = consult.transcript[consult.transcript.length - 1];
   // "Speaking": the doctor for a few seconds after each of their lines; you from your real mic level.
@@ -59,7 +85,7 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
   };
 
   return (
-    <div className={`line-in grid gap-5 ${panel ? "xl:grid-cols-[minmax(0,1fr)_360px]" : ""}`}>
+    <div className={`line-in grid gap-5 ${panel ? "xl:grid-cols-[minmax(0,1fr)_380px]" : ""}`}>
       {/* ── Call card ─────────────────────────────────────────────────── */}
       <section
         ref={card}
@@ -180,8 +206,8 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                 <RoundButton subtle on active={panel === "details"} onClick={() => setPanel((p) => (p === "details" ? null : "details"))} label={t("consultWith")}>
                   <Info size={20} />
                 </RoundButton>
-                <RoundButton subtle on active={panel === "captions"} onClick={() => setPanel((p) => (p === "captions" ? null : "captions"))} label={t("captionsTitle")}>
-                  <MessageSquareText size={20} />
+                <RoundButton subtle on active={panel === "rx"} onClick={() => setPanel((p) => (p === "rx" ? null : "rx"))} label={t("prescriptionLabel")}>
+                  <FileText size={20} />
                 </RoundButton>
               </>
             ) : null}
@@ -192,21 +218,23 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
       {/* ── Side panel ───────────────────────────────────────────────── */}
       {panel ? (
         <aside
+          ref={side}
           className="flex h-[420px] flex-col overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) xl:h-0 xl:min-h-full"
           dir={lang === "ur" ? "rtl" : "ltr"}
         >
           <header className="flex items-center justify-between border-b border-[var(--hair)] px-4 py-3">
             <div className="flex gap-1 rounded-(--radius-pill) bg-[var(--sunken)] p-0.5">
-              {(["captions", "details"] as const).map((p) => (
+              {panels.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setPanel(p)}
-                  className={`rounded-(--radius-pill) px-3 py-1 text-[12.5px] font-semibold ${
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-(--radius-pill) px-3 py-1 text-[12.5px] font-semibold ${
                     panel === p ? "bg-[var(--white)] text-[var(--ink)] shadow-(--shadow-xs)" : "text-[var(--mute)]"
                   }`}
                 >
-                  {p === "captions" ? t("captionsTitle") : t("consultWith")}
+                  {p === "rx" ? t("prescriptionLabel") : t("details")}
+                  {p === "rx" && consult.approvedAt ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" /> : null}
                 </button>
               ))}
             </div>
@@ -214,11 +242,33 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
               <X size={16} />
             </button>
           </header>
-          {panel === "captions" ? (
-            <TranscriptList lines={consult.transcript} lang={lang} doctorLabel={doctorShort} youLabel={t("you")} />
+          {panel === "rx" && !consult.approvedAt ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+              <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--tint)] text-[var(--link)]">
+                <FileText size={26} />
+                <span className="live-dot absolute -end-0.5 -top-0.5" />
+              </span>
+              <p className="text-[15px] font-semibold text-[var(--ink)]">{t("rxWritingTitle")}</p>
+            </div>
+          ) : panel === "rx" ? (
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--sunken)] p-3 slim-scrollbar">
+                <RxDocument consult={consult} prescriber={doctor} labels={rxLabels(t)} />
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--hair)] px-4 py-3">
+                <span className="text-[12px] text-[var(--mute)]">{t("emailed")}</span>
+                <button
+                  type="button"
+                  onClick={() => downloadRx(consult.id)}
+                  className="inline-flex items-center gap-1.5 rounded-(--radius-md) bg-[var(--action)] px-3.5 py-2 text-[13px] font-semibold text-[var(--color-on-fill)] hover:brightness-110"
+                >
+                  <Download size={15} /> {t("download")}
+                </button>
+              </div>
+            </>
           ) : (
-            <div className="grid content-start gap-4 overflow-y-auto px-5 py-4 text-[13px]">
-              <dl className="grid grid-cols-[96px_1fr] gap-y-2.5">
+            <div className="grid content-start gap-4 overflow-y-auto overflow-x-hidden px-5 py-4 text-[13px]">
+              <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-y-2.5">
                 <dt className="text-[var(--mute)]">{t("patientLabel")}</dt>
                 <dd className="font-semibold text-[var(--ink)]">{memberName}</dd>
                 <dt className="text-[var(--mute)]">{t("doctorLabel")}</dt>
@@ -250,8 +300,6 @@ export default function MeetCall({ consult, doctor, onLeave }: { consult: Consul
                   {media.hasAudio ? <LevelMeter level={media.level} /> : null}
                 </dd>
               </dl>
-              <p className="rounded-(--radius-md) bg-[var(--tint)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--body)]">{t("consent2")}</p>
-              <p className="rounded-(--radius-md) bg-[var(--sunken)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--body)]">{t("consent4")}</p>
             </div>
           )}
         </aside>
@@ -375,27 +423,6 @@ function CaptionText({ line, lang }: { line: TranscriptLine; lang: Lang }) {
   );
 }
 
-function TranscriptList({ lines, lang, doctorLabel, youLabel }: { lines: TranscriptLine[]; lang: Lang; doctorLabel: string; youLabel: string }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: "smooth" });
-  }, [lines.length]);
-  return (
-    <div ref={scroller} className="slim-scrollbar flex-1 space-y-3.5 overflow-y-auto px-5 py-4">
-      {lines.length === 0 ? <p className="py-6 text-center text-[13px] text-[var(--mute)]">…</p> : null}
-      {lines.map((l) => (
-        <div key={l.id} className="line-in">
-          <div className={`text-[12px] font-semibold ${l.speaker === "doctor" ? "text-[var(--link)]" : "text-[var(--color-teal-sec)]"}`}>
-            {l.speaker === "doctor" ? doctorLabel : youLabel}
-          </div>
-          <p className="text-[13.5px] leading-relaxed text-[var(--ink)]">
-            <CaptionText line={l} lang={lang} />
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function RoundButton({
   on,

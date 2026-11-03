@@ -27,8 +27,8 @@ export default function ConsentScreen() {
   return (
     <PatientStep
       step="consent"
+      back="/patient/choose"
       title={t("consentTitle")}
-      lede={t("consentLede")}
       footer={
         <PrimaryAction
           disabled={!agreed}
