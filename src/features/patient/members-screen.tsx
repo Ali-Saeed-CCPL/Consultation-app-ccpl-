@@ -15,7 +15,7 @@ import { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step"
 import MemberRecords, { useMemberVisits } from "@/features/patient/member-records";
 import ProfileForm, { cleanProfile } from "@/features/patient/profile-form";
 import { HOUSEHOLD } from "@/data/seed";
-import { allergiesText, conditionsText, emptyProfile, keyAnswered, medicinesText, profileState, type ProfileState } from "@/lib/profile";
+import { conditionName, emptyProfile, keyAnswered, profileState, type ProfileState } from "@/lib/profile";
 import { complaintText } from "@/lib/complaint";
 import { useT, type StringKey } from "@/lib/i18n";
 import { usePlatform } from "@/store/consult-store";
@@ -99,11 +99,11 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
         </div>
         <dl className="grid grid-cols-2 sm:grid-cols-4">
           {stats.map(([k, v, icon], i) => (
-            <div key={k} className={`flex items-center gap-3 px-5 py-4 ${i ? "sm:border-s sm:border-[var(--hair)]" : ""} ${i % 2 ? "border-s border-[var(--hair)]" : ""} ${i >= 2 ? "border-t border-[var(--hair)] sm:border-t-0" : ""}`}>
+            <div key={k} className={`flex items-center gap-3 px-4 py-4 ${i ? "sm:border-s sm:border-[var(--hair)]" : ""} ${i % 2 ? "border-s border-[var(--hair)]" : ""} ${i >= 2 ? "border-t border-[var(--hair)] sm:border-t-0" : ""}`}>
               <span className="text-[var(--faint)]">{icon}</span>
               <div>
                 <dd className="text-[18px] font-semibold leading-tight text-[var(--ink)]">{v}</dd>
-                <dt className="text-[12px] text-[var(--mute)]">{k}</dt>
+                <dt className="whitespace-nowrap text-[12px] text-[var(--mute)]">{k}</dt>
               </div>
             </div>
           ))}
@@ -116,7 +116,7 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
       </section>
 
       {/* ── Members ───────────────────────────────────────────────────── */}
-      <ul className="grid gap-5 lg:grid-cols-2">
+      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {members.map((m) => (
           <MemberCard key={m.id} member={m} unsaved={Boolean(drafts[m.id])} onOpen={(v) => onOpen(m, v)} />
         ))}
@@ -125,103 +125,71 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
   );
 }
 
+/** A compact member tile: who, the two or three things worth knowing at a glance, and the two ways in. */
 function MemberCard({ member: m, unsaved, onOpen }: { member: Member; unsaved: boolean; onOpen: (v: MembersView) => void }) {
   const { t, lang } = useT();
   const p = usePlatform((s) => s.profiles[m.id]);
   const visits = useMemberVisits(m.id);
   const state = profileState(p, m);
-  const answered = keyAnswered(p);
   const last = visits[0];
-  const lastReleased = last && (last.status === "approved" || last.status === "closed");
-  const show = (v: string | null) => (v === null ? <span className="text-[var(--faint)]">{t("notAnswered")}</span> : v || <span className="text-[var(--mute)]">{t("noneLabel")}</span>);
-  const allergies = allergiesText(p);
-  const facts: [string, React.ReactNode][] = [
-    [t("recAllergies"), allergies ? <span className="font-semibold text-[var(--color-red-ink)]">{allergies}</span> : show(allergies)],
-    [t("recConditions"), show(conditionsText(p, lang))],
-    [t("recMedicines"), show(medicinesText(p))],
+  // Allergies first (they matter most), then conditions; at most two chips.
+  const chips = [
+    ...(p?.allergies ?? []).map((a) => ({ key: `a-${a.name}`, text: a.name, danger: true })),
+    ...(p?.conditions ?? []).map((c) => ({ key: `c-${c.key}`, text: conditionName(c, lang), danger: false })),
   ];
+  const DOT: Record<ProfileState, string> = { complete: "bg-[var(--green)]", partial: "bg-[var(--link)]", empty: "bg-[var(--faint)]" };
 
   return (
-    <li className="flex flex-col overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) transition-[box-shadow,border-color] hover:border-[var(--sky-200)] hover:shadow-(--shadow-md)">
-      {/* Who */}
-      <header className="flex items-center gap-4 px-5 py-4">
-        <Avatar initials={initialsOf(m.name)} size={52} />
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 truncate text-[17px] font-semibold text-[var(--ink)]">
+    <li className="flex flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-xs) transition-[box-shadow,border-color] hover:border-[var(--sky-200)] hover:shadow-(--shadow-sm)">
+      <button type="button" onClick={() => onOpen("profile")} className="flex items-center gap-3 px-4 pb-3 pt-4 text-start">
+        <Avatar initials={initialsOf(m.name)} size={42} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold text-[var(--ink)]">
             {lang === "ur" ? m.nameUr : m.name}
             {unsaved ? <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--amber)]" title={t("unsaved")} /> : null}
-          </p>
-          <p className="truncate text-[12.5px] text-[var(--mute)]">
-            {t(`rel_${m.relation}` as StringKey)} · {t("years", { n: m.age })} · {m.gender === "M" ? t("gMale") : t("gFemale")} ·{" "}
-            <span className="font-mono" dir="ltr">
-              {m.mrn}
-            </span>
-          </p>
-        </div>
-        <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-(--radius-pill) bg-[var(--green-tint)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--color-green-ink)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" /> {t("coverActive")}
+          </span>
+          <span className="block truncate text-[12.5px] text-[var(--mute)]">
+            {t(`rel_${m.relation}` as StringKey)} · {t("years", { n: m.age })}
+          </span>
         </span>
-      </header>
+      </button>
 
-      {/* Health profile | records */}
-      <div className="grid flex-1 border-t border-[var(--hair)] sm:grid-cols-[1.35fr_1fr]">
-        <div className="px-5 py-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{t("healthProfile")}</p>
-            <span className={`rounded-(--radius-pill) px-2 py-0.5 text-[11px] font-semibold ${STATE_TONE[state]}`}>{t(STATE_LABEL[state])}</span>
-          </div>
-          {state === "empty" ? (
-            <p className="text-[13px] leading-relaxed text-[var(--mute)]">{t("profileEmptyHint")}</p>
-          ) : (
-            <dl className="grid gap-1.5 text-[13px]">
-              {facts.map(([k, v]) => (
-                <div key={k} className="grid grid-cols-[118px_1fr] gap-2">
-                  <dt className="text-[var(--mute)]">{k}</dt>
-                  <dd className="min-w-0 truncate text-[var(--ink)]">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          <div className="mt-3 flex items-center gap-2">
-            <div className="grid flex-1 grid-cols-3 gap-1">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className={`h-1 rounded-full ${i < answered ? "bg-[var(--green)]" : "bg-[var(--hair)]"}`} />
-              ))}
-            </div>
-            <span className="text-[11px] text-[var(--mute)]">{t("keyAnswered", { n: answered })}</span>
-          </div>
-        </div>
-        <div className="border-t border-[var(--hair)] bg-[var(--sunken)] px-5 py-4 sm:border-s sm:border-t-0">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{t("viewRecordsShort")}</p>
-          {last ? (
-            <div className="grid gap-1">
-              <p className="text-[22px] font-semibold leading-none text-[var(--ink)]">
-                {visits.length} <span className="text-[13px] font-normal text-[var(--mute)]">{visits.length === 1 ? t("visitWord") : t("visitsWord")}</span>
-              </p>
-              <p className="mt-1.5 truncate text-[13px] text-[var(--ink)]">{complaintText(last.symptoms, lang) || "—"}</p>
-              <p className="text-[12px] text-[var(--mute)]">{fmtDay(last.createdAt, lang)}</p>
-              <span
-                className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-(--radius-pill) px-2 py-0.5 text-[11px] font-semibold ${
-                  lastReleased ? "bg-[var(--green-tint)] text-[var(--color-green-ink)]" : "bg-[var(--white)] text-[var(--mute)]"
-                }`}
-              >
-                {lastReleased ? (last.rx.length ? t("rxReadyShort") : t("adviceOnly")) : t("inProgress")}
-              </span>
-            </div>
-          ) : (
-            <p className="text-[13px] leading-relaxed text-[var(--mute)]">{t("noVisitsYet")}</p>
-          )}
-        </div>
+      <div className="flex min-h-[26px] flex-wrap gap-1 px-4">
+        {chips.slice(0, 2).map((c) => (
+          <span
+            key={c.key}
+            className={`inline-flex max-w-full items-center gap-1 truncate rounded-(--radius-pill) px-2 py-0.5 text-[11px] font-semibold ${
+              c.danger ? "bg-[var(--red-tint)] text-[var(--color-red-ink)]" : "bg-[var(--sunken)] text-[var(--body)]"
+            }`}
+          >
+            {c.danger ? <ShieldAlert size={11} className="flex-shrink-0" /> : null}
+            {c.text}
+          </span>
+        ))}
+        {chips.length > 2 ? <span className="px-1 text-[11px] font-semibold text-[var(--mute)]">+{chips.length - 2}</span> : null}
       </div>
 
-      {/* Actions */}
-      <footer className="grid grid-cols-2 divide-x divide-[var(--hair)] border-t border-[var(--hair)] rtl:divide-x-reverse">
-        <button type="button" onClick={() => onOpen("profile")} className="group flex h-12 items-center justify-center gap-2 text-[13.5px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
-          <UserRoundPen size={16} /> {state === "empty" ? t("fillProfile") : t("updateProfile")}
+      <dl className="mx-4 mt-2 grid gap-1.5 border-t border-[var(--hair)] py-3 text-[12.5px]">
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-[var(--mute)]">{t("healthProfile")}</dt>
+          <dd className="inline-flex items-center gap-1.5 font-semibold text-[var(--ink)]">
+            <span className={`h-1.5 w-1.5 rounded-full ${DOT[state]}`} />
+            {t(STATE_LABEL[state])}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-[var(--mute)]">{t("lastVisitLabel")}</dt>
+          <dd className="truncate font-semibold text-[var(--ink)]">{last ? `${fmtDay(last.createdAt, lang)} · ${complaintText(last.symptoms, lang) || "—"}` : <span className="font-normal text-[var(--faint)]">{t("noneLabel")}</span>}</dd>
+        </div>
+      </dl>
+
+      <footer className="mt-auto grid grid-cols-2 gap-2 border-t border-[var(--hair)] p-2">
+        <button type="button" onClick={() => onOpen("profile")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-(--radius-md) text-[13px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
+          <UserRoundPen size={15} /> {t("profileShort")}
         </button>
-        <button type="button" onClick={() => onOpen("records")} className="group flex h-12 items-center justify-center gap-2 text-[13.5px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
-          <FileText size={16} /> {t("viewRecordsBtn")}
-          <ArrowRight size={14} className={`transition-transform group-hover:translate-x-0.5 ${lang === "ur" ? "-scale-x-100" : ""}`} />
+        <button type="button" onClick={() => onOpen("records")} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-(--radius-md) text-[13px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
+          <FileText size={15} /> {t("recordsShort")}
+          {visits.length ? <span className="rounded-(--radius-pill) bg-[var(--tint)] px-1.5 font-mono text-[10.5px]">{visits.length}</span> : null}
         </button>
       </footer>
     </li>
