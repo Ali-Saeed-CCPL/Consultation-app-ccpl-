@@ -1,5 +1,5 @@
 /* Admin · Doctors — the GP roster with each doctor's figures, and Add doctor.
-   Filters above the table: search, status, sign-in, the period the figures
+   Filters above the table: search, status, the period the figures
    cover (the date-range picker with quick ranges), and the sort order. Each doctor carries their chart colour. */
 
 import { useMemo, useState } from "react";
@@ -9,7 +9,7 @@ import PageHero from "@/components/layout/page-hero";
 import Avatar from "@/components/ui/avatar";
 import Button from "@/components/ui/button";
 import DateRangePicker from "@/components/ui/date-range-picker";
-import { FilterBar, FilterField, SearchFilter, SegmentedFilter, SelectFilter } from "@/components/ui/filter-bar";
+import { FilterBar, FilterField, SearchFilter, SelectFilter } from "@/components/ui/filter-bar";
 import Tag from "@/components/ui/tag";
 import { Cell, EmptyRow, Row, Table } from "@/components/ui/table";
 import DoctorForm from "@/features/admin/doctor-form";
@@ -53,13 +53,12 @@ export default function DoctorsScreen() {
   const logins = usePlatform((s) => s.logins);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [signIn, setSignIn] = useState<"all" | "yes" | "no">("all");
   // Empty range = all time.
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [sort, setSort] = useState<Sort>("received");
   const [adding, setAdding] = useState(false);
-  const active = Boolean(q || status !== "all" || signIn !== "all" || from !== "" || sort !== "received");
+  const active = Boolean(q || status !== "all" || from !== "" || sort !== "received");
   const onCall = (d: Doctor) => consultations.some((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === d.id);
   const colour = useMemo(() => new Map(doctors.map((d, i) => [d.id, `var(--series-${(i % 8) + 1})`])), [doctors]);
 
@@ -73,7 +72,6 @@ export default function DoctorsScreen() {
     .map((d) => ({ d, s: doctorStats(inPeriod, d.id), state: stateOf(d, onCall(d)), login: signInOf(d.id, logins) }))
     .filter(({ d }) => !needle || d.name.toLowerCase().includes(needle) || d.pmdc.toLowerCase().includes(needle))
     .filter(({ state }) => status === "all" || state === status)
-    .filter(({ login }) => signIn === "all" || (signIn === "yes" ? Boolean(login) : !login))
     .sort((a, b) =>
       sort === "name"
         ? a.d.name.localeCompare(b.d.name)
@@ -103,7 +101,6 @@ export default function DoctorsScreen() {
           onReset={() => {
             setQ("");
             setStatus("all");
-            setSignIn("all");
             setFrom("");
             setTo("");
             setSort("received");
@@ -114,17 +111,6 @@ export default function DoctorsScreen() {
           </FilterField>
           <FilterField label="Status">
             <SelectFilter value={status} onChange={setStatus} options={STATUS_OPTIONS} />
-          </FilterField>
-          <FilterField label="Sign-in">
-            <SegmentedFilter
-              value={signIn}
-              onChange={setSignIn}
-              options={[
-                { key: "all", label: "All" },
-                { key: "yes", label: "Has sign-in" },
-                { key: "no", label: "None" },
-              ]}
-            />
           </FilterField>
           <FilterField label="Figures for">
             <DateRangePicker
