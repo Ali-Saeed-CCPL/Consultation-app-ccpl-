@@ -6,8 +6,8 @@ import { useSession } from "@/store/session-store";
 import type { Lang } from "@/lib/types";
 
 const STRINGS = {
-  appName: { en: "Doctor on call", ur: "ڈاکٹر آن کال" },
-  brandSub: { en: "Crescent Care · Digital Consultation", ur: "کریسنٹ کیئر · ڈیجیٹل مشاورت" },
+  appName: { en: "Digital Consultation", ur: "ڈیجیٹل مشاورت" },
+  patientPortal: { en: "Patient portal", ur: "مریض پورٹل" },
   continue: { en: "Continue", ur: "جاری رکھیں" },
   back: { en: "Back", ur: "واپس" },
   signOut: { en: "Sign out", ur: "سائن آؤٹ" },

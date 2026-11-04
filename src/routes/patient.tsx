@@ -3,7 +3,7 @@ import PatientShell from '@/components/layout/patient-shell'
 import { useSession } from '@/store/session-store'
 
 export const Route = createFileRoute('/patient')({
-  head: () => ({ meta: [{ title: 'Doctor on call · Crescent Care' }] }),
+  head: () => ({ meta: [{ title: 'Digital Consultation · Crescent Care' }] }),
   component: PatientLayout,
 })
 

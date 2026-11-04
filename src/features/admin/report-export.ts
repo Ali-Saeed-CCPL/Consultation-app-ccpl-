@@ -2,18 +2,26 @@
    CCPL frontends use) and a formatted Excel workbook (ExcelJS — bold headers,
    fills, widths, number formats, one sheet per table). Both libraries load only
    when a download is clicked. The screen, the PDF and the workbook all read the
-   same ReportData, so they always agree. */
+   same ReportData, so they always agree — including the filters it was built
+   with (listed under the period) and which sections it contains. */
 
 import { BRAND } from "@/config/app.constants";
 
+export type ReportSection = "summary" | "doctors" | "complaints" | "time";
+
 export interface ReportData {
   period: string;
+  /** "Doctors: …", "Language: Urdu" — empty when nothing is filtered. */
+  filters: string[];
+  sections: ReportSection[];
   generated: string;
   fileBase: string;
   totals: { label: string; value: string | number }[];
   doctors: { name: string; pmdc: string; received: number; patients: number; callMin: number; avgCallMin: number; avgWaitMin: number; released: number; share: number }[];
   complaints: { label: string; n: number; share: number }[];
-  days: { date: string; started: number; seen: number; released: number }[];
+  /** "Day", "Week" or "Month" — what each row of `time` covers. */
+  timeLabel: string;
+  time: { label: string; started: number; seen: number; released: number }[];
 }
 
 const NAVY: [number, number, number] = [22, 52, 99];
@@ -39,14 +47,22 @@ export async function downloadReportPdf(r: ReportData) {
   doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...MUTE);
   doc.text(r.period, W - M, 44, { align: "right" });
   doc.text(`Generated ${r.generated}`, W - M, 60, { align: "right" });
-  doc.setDrawColor(...LINE).line(M, 78, W - M, 78);
+  let top = 78;
+  if (r.filters.length) {
+    doc.setFontSize(9).setTextColor(...MUTE);
+    const lines = doc.splitTextToSize(`Filtered — ${r.filters.join(" · ")}`, W - 2 * M);
+    doc.text(lines, M, 84);
+    top = 84 + lines.length * 11;
+  }
+  doc.setDrawColor(...LINE).line(M, top, W - M, top);
+  const has = (k: ReportSection) => r.sections.includes(k);
 
   // Totals — a 4-across grid of label / value
   const cells = r.totals.map((t) => `${t.label}\n${t.value}`);
   const grid: string[][] = [];
   for (let i = 0; i < cells.length; i += 4) grid.push(cells.slice(i, i + 4));
-  autoTable(doc, {
-    startY: 92,
+  if (has("summary")) autoTable(doc, {
+    startY: top + 14,
     margin: { left: M, right: M },
     body: grid,
     theme: "plain",
@@ -75,27 +91,28 @@ export async function downloadReportPdf(r: ReportData) {
     headStyles: { fillColor: BLUE, textColor: 255, fontStyle: "bold" as const },
     alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
   };
-  const after = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+  // Below the last table, or under the letterhead when nothing has been drawn yet.
+  const after = () => (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? top - 14;
 
-  autoTable(doc, {
+  if (has("doctors")) autoTable(doc, {
     ...tableStyle,
     startY: section("By doctor", after() + 28),
     head: [["Doctor", "PMDC", "Patients received", "Unique", "Call time (min)", "Avg call (min)", "Avg wait (min)", "Released", "Share"]],
     body: r.doctors.map((d) => [d.name, d.pmdc, d.received, d.patients, d.callMin, d.avgCallMin, d.avgWaitMin, d.released, pct(d.share)]),
     columnStyles: { 0: { fontStyle: "bold", minCellWidth: 120 }, 1: { minCellWidth: 86 }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" }, 7: { halign: "right" }, 8: { halign: "right" } },
   });
-  autoTable(doc, {
+  if (has("complaints")) autoTable(doc, {
     ...tableStyle,
     startY: section("By complaint", after() + 28),
     head: [["Complaint", "Consultations", "Share"]],
     body: r.complaints.length ? r.complaints.map((c) => [c.label, c.n, pct(c.share)]) : [["No consultations in this period", "", ""]],
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
-  autoTable(doc, {
+  if (has("time")) autoTable(doc, {
     ...tableStyle,
-    startY: section("By day", after() + 28),
-    head: [["Date", "Started", "Seen by a doctor", "Prescriptions released"]],
-    body: r.days.length ? r.days.map((d) => [d.date, d.started, d.seen, d.released]) : [["No consultations in this period", "", "", ""]],
+    startY: section(`By ${r.timeLabel.toLowerCase()}`, after() + 28),
+    head: [[r.timeLabel, "Started", "Seen by a doctor", "Prescriptions released"]],
+    body: r.time.length ? r.time.map((d) => [d.label, d.started, d.seen, d.released]) : [["No consultations in this period", "", "", ""]],
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
   });
 
@@ -128,7 +145,7 @@ export async function downloadReportXlsx(r: ReportData) {
     Object.assign(ws.getCell(1, 1), { value: `${BRAND} — Consultation report` });
     ws.getCell(1, 1).font = { bold: true, size: 15, color: { argb: "FF163463" } };
     ws.getCell(2, 1).value = `Period: ${r.period}`;
-    ws.getCell(3, 1).value = `Generated: ${r.generated}`;
+    ws.getCell(3, 1).value = r.filters.length ? `Generated: ${r.generated} · Filtered — ${r.filters.join(" · ")}` : `Generated: ${r.generated}`;
     ws.getRow(2).font = ws.getRow(3).font = { color: { argb: "FF667085" }, size: 10 };
     const hr = ws.getRow(5);
     hr.values = head;
@@ -153,7 +170,9 @@ export async function downloadReportXlsx(r: ReportData) {
     return ws;
   };
 
-  sheet("Summary", ["Measure", "Value"], r.totals.map((t) => [t.label, t.value]), [34, 18]);
+  const has = (k: ReportSection) => r.sections.includes(k);
+  if (has("summary")) sheet("Summary", ["Measure", "Value"], r.totals.map((t) => [t.label, t.value]), [34, 18]);
+  if (has("doctors")) {
   const byDoc = sheet(
     "By doctor",
     ["Doctor", "PMDC", "Patients received", "Unique patients", "Call time (min)", "Avg call (min)", "Avg wait (min)", "Prescriptions released", "Share"],
@@ -170,8 +189,12 @@ export async function downloadReportXlsx(r: ReportData) {
     t.font = { bold: true };
     t.eachCell({ includeEmpty: true }, (c) => (c.border = { top: { style: "medium", color: { argb: "FF163463" } } }));
   }
-  sheet("By complaint", ["Complaint", "Consultations", "Share"], r.complaints.map((c) => [c.label, c.n, c.share]), [28, 16, 10], [undefined, "0", "0%"]);
-  sheet("By day", ["Date", "Started", "Seen by a doctor", "Prescriptions released"], r.days.map((d) => [d.date, d.started, d.seen, d.released]), [22, 12, 18, 22], [undefined, "0", "0", "0"]);
+  }
+  if (has("complaints")) sheet("By complaint", ["Complaint", "Consultations", "Share"], r.complaints.map((c) => [c.label, c.n, c.share]), [28, 16, 10], [undefined, "0", "0%"]);
+  if (has("time"))
+    sheet(`By ${r.timeLabel.toLowerCase()}`, [r.timeLabel, "Started", "Seen by a doctor", "Prescriptions released"], r.time.map((d) => [d.label, d.started, d.seen, d.released]), [30, 12, 18, 22], [undefined, "0", "0", "0"]);
+  // A workbook needs a sheet; with nothing chosen it holds the title block alone.
+  if (!wb.worksheets.length) sheet("Report", ["No sections chosen"], [], [30]);
 
   const buf = await wb.xlsx.writeBuffer();
   const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));

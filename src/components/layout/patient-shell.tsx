@@ -45,9 +45,10 @@ export default function PatientShell({ children }: { children: ReactNode }) {
         <div className="flex h-[62px] items-center gap-3 border-b border-[var(--line)] px-4 sm:gap-4 sm:px-6">
           <Link to="/patient/home" className="flex min-w-0 items-center gap-3">
             <img src={LOGO_SRC} alt={BRAND} className="h-[34px] w-auto flex-shrink-0" />
-            <span className="min-w-0">
-              <span className="block truncate text-[15px] font-semibold leading-tight tracking-tight text-[var(--ink)]">{t("appName")}</span>
-              <span className="hidden truncate text-[11.5px] leading-tight text-[var(--mute)] sm:block">{t("brandSub")}</span>
+            {/* Same as the doctor and admin portals: the product name and which portal this is. */}
+            <span className="hidden truncate text-[15px] font-semibold tracking-tight text-[var(--ink)] sm:block">{t("appName")}</span>
+            <span className="hidden rounded-(--radius-pill) border border-[var(--line)] px-2 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--mute)] lg:inline-flex">
+              {t("patientPortal")}
             </span>
           </Link>
           <div className="ms-auto flex flex-shrink-0 items-center gap-2.5">

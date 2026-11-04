@@ -20,26 +20,10 @@ import { COMPLAINTS, RED_FLAGS } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { CLINIC_HOURS, fmtDuration } from "@/lib/clinic";
 import { usePlatform } from "@/store/consult-store";
-import type { Consultation } from "@/lib/types";
+import { OUTCOMES, outcomeOf, type Outcome } from "@/features/admin/outcome";
 
 const PAGE = 20;
 const dayOf = (ts: number) => new Date(ts).toLocaleDateString("en-CA", { timeZone: CLINIC_HOURS.tz });
-
-type Outcome = "prescribed" | "advice" | "er" | "live" | "ineligible";
-const OUTCOMES: Record<Outcome, { label: string; tone: "ok" | "neutral" | "err" | "warn" }> = {
-  prescribed: { label: "Prescribed", tone: "ok" },
-  advice: { label: "Advice only", tone: "neutral" },
-  er: { label: "Sent to ER", tone: "err" },
-  live: { label: "In progress", tone: "warn" },
-  ineligible: { label: "Not eligible", tone: "err" },
-};
-
-function outcomeOf(c: Consultation): Outcome {
-  if (c.status === "emergency") return "er";
-  if (c.status === "ineligible") return "ineligible";
-  if (c.status === "approved" || c.status === "closed" || c.status === "drafting") return c.rxVersion > 0 ? "prescribed" : "advice";
-  return "live";
-}
 
 /** A tint per complaint, so the column scans at a glance. */
 const COMPLAINT_TINT: Record<string, string> = {
