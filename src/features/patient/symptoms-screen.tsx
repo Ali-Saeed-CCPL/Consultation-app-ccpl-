@@ -6,7 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
-import { Brain, Check, CirclePlus, Hand, Pencil, ShieldAlert, Soup, Stethoscope, Pill, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
+import { AlertCircle, Brain, Check, CirclePlus, Hand, Pencil, ShieldAlert, Soup, Stethoscope, Pill, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
 import Dialog from "@/components/ui/dialog";
 import PatientStep, { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step";
 import ProfileForm, { cleanProfile } from "@/features/patient/profile-form";
@@ -32,6 +32,8 @@ export default function SymptomsScreen() {
   const ensureFor = useIntakeDraft((s) => s.ensureFor);
   const patch = useIntakeDraft((s) => s.patch);
   const { complaint, other, duration, severity, details, redFlags, profileOk } = useIntakeDraft((s) => s.symptoms);
+  // Pressed "Find a doctor" with answers missing: say so and point at them.
+  const [tried, setTried] = useState(false);
   useEffect(() => {
     if (consult) ensureFor(consult.id, consult.symptoms, Boolean(consult.profile));
   }, [consult?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- seed once per consultation
@@ -55,7 +57,11 @@ export default function SymptomsScreen() {
   };
 
   const submit = () => {
-    if (!ready) return;
+    if (!ready) {
+      setTried(true);
+      document.querySelector("[data-missing='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     submitSymptoms(consult.id, {
       complaint,
       other: needsOther ? other.trim() : undefined,
@@ -70,6 +76,11 @@ export default function SymptomsScreen() {
   // The answers the doctor needs before the queue (severity always has a value; details are optional).
   const done = [Boolean(complaint && (!needsOther || other.trim())), Boolean(duration), true, redFlags !== null];
   const answered = done.filter(Boolean).length;
+  const missing = [
+    !done[0] && t("complaintLabel"),
+    !done[1] && t("recDuration"),
+    !done[3] && t("recRedFlags"),
+  ].filter(Boolean) as string[];
 
   return (
     <PatientStep
@@ -78,15 +89,25 @@ export default function SymptomsScreen() {
       title={t("sympTitle")}
       footer={
         <>
-          <span className="font-mono text-[12.5px] text-[var(--mute)]">{t("answeredOf", { n: answered, total: done.length })}</span>
-          <PrimaryAction disabled={!ready} onClick={submit}>
+          {ready ? (
+            <span className="font-mono text-[12.5px] text-[var(--mute)]">{t("answeredOf", { n: answered, total: done.length })}</span>
+          ) : (
+            <span role="status" className={`flex items-start gap-2 text-[13px] ${tried ? "text-[var(--color-red-ink)]" : "text-[var(--amber-ink)]"}`}>
+              <AlertCircle size={16} className="mt-px flex-shrink-0" />
+              <span>
+                <span className="font-semibold">{t("completeRequired")}</span>
+                <span className="block text-[12px] opacity-80">{t("stillNeeded", { list: missing.join(" · ") })}</span>
+              </span>
+            </span>
+          )}
+          <PrimaryAction onClick={submit} aria-disabled={!ready}>
             {t("findDoctor")}
           </PrimaryAction>
         </>
       }
     >
       <div className="grid gap-4 lg:grid-cols-2">
-        <Question n={1} label={t("qComplaint")} hint={t("pickAny")} done={done[0]}>
+        <Question n={1} label={t("qComplaint")} hint={t("pickAny")} done={done[0]} missing={tried && !done[0]}>
           <Chips options={COMPLAINTS.map((c) => ({ key: c.key, label: pick(c, lang) }))} value={picked} onChange={toggleComplaint} multi />
           {needsOther ? (
             <label className="mt-3 block line-in">
@@ -102,7 +123,7 @@ export default function SymptomsScreen() {
             </label>
           ) : null}
         </Question>
-        <Question n={2} label={t("qDuration")} hint={t("pickOne")} done={done[1]}>
+        <Question n={2} label={t("qDuration")} hint={t("pickOne")} done={done[1]} missing={tried && !done[1]}>
           <Chips options={DURATIONS.map((d) => ({ key: d.key, label: pick(d, lang) }))} value={duration} onChange={(k) => patch({ duration: k })} />
         </Question>
         <Question n={3} label={t("qSeverity")} done>
@@ -131,7 +152,7 @@ export default function SymptomsScreen() {
           <HealthHistory member={consult.member} profile={profile} confirmed={profileOk} onConfirm={() => patch({ profileOk: true })} />
         </Question>
 
-        <Question n={6} label={t("qRedFlags")} hint={t("pickAny")} done={done[3]} danger className="lg:col-span-2">
+        <Question n={6} label={t("qRedFlags")} hint={t("pickAny")} done={done[3]} missing={tried && !done[3]} danger className="lg:col-span-2">
           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {RED_FLAGS.map((f) => {
               const on = redFlags?.includes(f.key) ?? false;
@@ -175,6 +196,7 @@ function Question({
   hint,
   done,
   danger,
+  missing,
   className = "",
   children,
 }: {
@@ -183,12 +205,18 @@ function Question({
   hint?: string;
   done?: boolean;
   danger?: boolean;
+  /** Required, still unanswered, and the patient tried to go on — outlined with a note. */
+  missing?: boolean;
   className?: string;
   children: ReactNode;
 }) {
+  const { t } = useT();
   return (
     <div
-      className={`rounded-(--radius-card) border bg-[var(--white)] p-4 ${danger ? "border-[var(--color-danger-border)]" : done ? "border-[var(--sky-200)]" : "border-[var(--line)]"} ${className}`}
+      data-missing={missing || undefined}
+      className={`rounded-(--radius-card) border bg-[var(--white)] p-4 transition-shadow ${
+        missing ? "border-[var(--red)] shadow-[0_0_0_3px_var(--red-tint)]" : danger ? "border-[var(--color-danger-border)]" : done ? "border-[var(--sky-200)]" : "border-[var(--line)]"
+      } ${className}`}
     >
       <div className="mb-3 flex items-center gap-2.5">
         <span
@@ -199,7 +227,11 @@ function Question({
           {done ? <Check size={14} strokeWidth={3} /> : n}
         </span>
         <p className="min-w-0 flex-1 text-[14px] font-semibold text-[var(--ink)]">{label}</p>
-        {hint ? <span className="flex-shrink-0 text-[12px] text-[var(--mute)]">{hint}</span> : null}
+        {missing ? (
+          <span className="flex-shrink-0 text-[12px] font-semibold text-[var(--red)]">{t("answerThis")}</span>
+        ) : hint ? (
+          <span className="flex-shrink-0 text-[12px] text-[var(--mute)]">{hint}</span>
+        ) : null}
       </div>
       {children}
     </div>

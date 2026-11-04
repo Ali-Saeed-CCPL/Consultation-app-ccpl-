@@ -8,17 +8,19 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, FileText, History, Info, ShieldAlert, Stethoscope, UserRoundPen, Video } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, History, Info, ShieldAlert, ShieldCheck, UserRoundPen, Users, Video } from "lucide-react";
 import { toast } from "sonner";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step";
 import MemberRecords, { useMemberVisits } from "@/features/patient/member-records";
 import ProfileForm, { cleanProfile } from "@/features/patient/profile-form";
 import { HOUSEHOLD } from "@/data/seed";
-import { conditionName, emptyProfile, keyAnswered, profileState, type ProfileState } from "@/lib/profile";
+import { allergiesText, conditionsText, emptyProfile, keyAnswered, medicinesText, profileState, type ProfileState } from "@/lib/profile";
+import { complaintText } from "@/lib/complaint";
 import { useT, type StringKey } from "@/lib/i18n";
 import { usePlatform } from "@/store/consult-store";
 import { useIntakeDraft } from "@/store/intake-draft";
+import { useSession } from "@/store/session-store";
 import type { HealthProfile, Lang, Member } from "@/lib/types";
 
 export type MembersView = "profile" | "records";
@@ -60,19 +62,62 @@ export default function MembersScreen({ memberId, view = "profile", visitId }: {
 
 function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile>; onOpen: (m: Member, v: MembersView) => void }) {
   const { t } = useT();
+  const navigate = useNavigate();
+  const phone = useSession((s) => s.patientPhone);
+  const profiles = usePlatform((s) => s.profiles);
+  const consultations = usePlatform((s) => s.consultations);
+  const members = HOUSEHOLD.members;
+  const complete = members.filter((m) => profileState(profiles[m.id], m) === "complete").length;
+  const visits = consultations.filter((c) => c.householdPhone === phone && c.callStartedAt).length;
+  const allergies = members.reduce((n, m) => n + (profiles[m.id]?.allergies?.length ?? 0), 0);
+  const stats: [string, string, React.ReactNode][] = [
+    [t("hhMembers"), String(members.length), <Users key="i" size={16} />],
+    [t("hhProfiles"), `${complete} / ${members.length}`, <UserRoundPen key="i" size={16} />],
+    [t("hhVisits"), String(visits), <History key="i" size={16} />],
+    [t("hhAllergies"), String(allergies), <ShieldAlert key="i" size={16} />],
+  ];
+
   return (
     <div className="line-in grid gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="page-title">{t("navMembers")}</h1>
-          <p className="mt-1 text-[13.5px] text-[var(--mute)]">{t("chooseMemberSub")}</p>
-        </div>
-        <span className="font-mono text-[12px] text-[var(--mute)]" dir="ltr">
-          {HOUSEHOLD.policy} · {HOUSEHOLD.partner}
-        </span>
+      <div>
+        <h1 className="page-title">{t("navMembers")}</h1>
+        <p className="mt-1 text-[13.5px] text-[var(--mute)]">{t("chooseMemberSub")}</p>
       </div>
-      <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-        {HOUSEHOLD.members.map((m) => (
+
+      {/* ── The household at a glance ─────────────────────────────────── */}
+      <section className="grid overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) lg:grid-cols-[minmax(260px,1.1fr)_2fr_auto]">
+        <div className="flex items-center gap-3.5 border-b border-[var(--hair)] px-5 py-4 lg:border-b-0 lg:border-e">
+          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-(--radius-md) bg-[var(--tint)] text-[var(--link)]">
+            <ShieldCheck size={20} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{HOUSEHOLD.partner}</p>
+            <p className="truncate font-mono text-[14px] font-semibold text-[var(--ink)]" dir="ltr">
+              {HOUSEHOLD.policy}
+            </p>
+          </div>
+        </div>
+        <dl className="grid grid-cols-2 sm:grid-cols-4">
+          {stats.map(([k, v, icon], i) => (
+            <div key={k} className={`flex items-center gap-3 px-5 py-4 ${i ? "sm:border-s sm:border-[var(--hair)]" : ""} ${i % 2 ? "border-s border-[var(--hair)]" : ""} ${i >= 2 ? "border-t border-[var(--hair)] sm:border-t-0" : ""}`}>
+              <span className="text-[var(--faint)]">{icon}</span>
+              <div>
+                <dd className="text-[18px] font-semibold leading-tight text-[var(--ink)]">{v}</dd>
+                <dt className="text-[12px] text-[var(--mute)]">{k}</dt>
+              </div>
+            </div>
+          ))}
+        </dl>
+        <div className="flex items-center border-t border-[var(--hair)] px-5 py-3 lg:border-s lg:border-t-0">
+          <PrimaryAction onClick={() => navigate({ to: "/patient/choose" })}>
+            <Video size={16} /> {t("newConsult")}
+          </PrimaryAction>
+        </div>
+      </section>
+
+      {/* ── Members ───────────────────────────────────────────────────── */}
+      <ul className="grid gap-5 lg:grid-cols-2">
+        {members.map((m) => (
           <MemberCard key={m.id} member={m} unsaved={Boolean(drafts[m.id])} onOpen={(v) => onOpen(m, v)} />
         ))}
       </ul>
@@ -86,78 +131,99 @@ function MemberCard({ member: m, unsaved, onOpen }: { member: Member; unsaved: b
   const visits = useMemberVisits(m.id);
   const state = profileState(p, m);
   const answered = keyAnswered(p);
+  const last = visits[0];
+  const lastReleased = last && (last.status === "approved" || last.status === "closed");
+  const show = (v: string | null) => (v === null ? <span className="text-[var(--faint)]">{t("notAnswered")}</span> : v || <span className="text-[var(--mute)]">{t("noneLabel")}</span>);
+  const allergies = allergiesText(p);
+  const facts: [string, React.ReactNode][] = [
+    [t("recAllergies"), allergies ? <span className="font-semibold text-[var(--color-red-ink)]">{allergies}</span> : show(allergies)],
+    [t("recConditions"), show(conditionsText(p, lang))],
+    [t("recMedicines"), show(medicinesText(p))],
+  ];
+
   return (
-    <li className="flex flex-col rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) transition-shadow hover:shadow-(--shadow-md)">
-      <button type="button" onClick={() => onOpen("profile")} className="flex items-center gap-3.5 px-5 pt-5 text-start">
-        <Avatar initials={initialsOf(m.name)} size={48} />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 truncate text-[16px] font-semibold text-[var(--ink)]">
+    <li className="flex flex-col overflow-hidden rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] shadow-(--shadow-sm) transition-[box-shadow,border-color] hover:border-[var(--sky-200)] hover:shadow-(--shadow-md)">
+      {/* Who */}
+      <header className="flex items-center gap-4 px-5 py-4">
+        <Avatar initials={initialsOf(m.name)} size={52} />
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 truncate text-[17px] font-semibold text-[var(--ink)]">
             {lang === "ur" ? m.nameUr : m.name}
             {unsaved ? <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--amber)]" title={t("unsaved")} /> : null}
-          </span>
-          <span className="block truncate text-[12.5px] text-[var(--mute)]">
-            {t(`rel_${m.relation}` as StringKey)} · {t("years", { n: m.age })} ·{" "}
+          </p>
+          <p className="truncate text-[12.5px] text-[var(--mute)]">
+            {t(`rel_${m.relation}` as StringKey)} · {t("years", { n: m.age })} · {m.gender === "M" ? t("gMale") : t("gFemale")} ·{" "}
             <span className="font-mono" dir="ltr">
               {m.mrn}
             </span>
-          </span>
+          </p>
+        </div>
+        <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-(--radius-pill) bg-[var(--green-tint)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--color-green-ink)]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--green)]" /> {t("coverActive")}
         </span>
-      </button>
+      </header>
 
-      <div className="grid gap-3 px-5 py-4">
-        {/* Health profile at a glance */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
+      {/* Health profile | records */}
+      <div className="grid flex-1 border-t border-[var(--hair)] sm:grid-cols-[1.35fr_1fr]">
+        <div className="px-5 py-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{t("healthProfile")}</p>
             <span className={`rounded-(--radius-pill) px-2 py-0.5 text-[11px] font-semibold ${STATE_TONE[state]}`}>{t(STATE_LABEL[state])}</span>
-            <span className="text-[11.5px] text-[var(--mute)]">{t("keyAnswered", { n: answered })}</span>
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className={`h-1 rounded-full ${i < answered ? "bg-[var(--green)]" : "bg-[var(--hair)]"}`} />
-            ))}
-          </div>
-          <div className="mt-2.5 flex min-h-[24px] flex-wrap gap-1">
-            {(p?.allergies ?? []).map((a) => (
-              <span key={a.name} className="inline-flex items-center gap-1 rounded-(--radius-pill) bg-[var(--red-tint)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-red-ink)]">
-                <ShieldAlert size={11} /> {a.name}
-              </span>
-            ))}
-            {(p?.conditions ?? []).map((c) => (
-              <span key={c.key} className="inline-flex items-center gap-1 rounded-(--radius-pill) border border-[var(--line)] px-2 py-0.5 text-[11px] font-semibold text-[var(--body)]">
-                <Stethoscope size={11} /> {conditionName(c, lang)}
-              </span>
-            ))}
+          {state === "empty" ? (
+            <p className="text-[13px] leading-relaxed text-[var(--mute)]">{t("profileEmptyHint")}</p>
+          ) : (
+            <dl className="grid gap-1.5 text-[13px]">
+              {facts.map(([k, v]) => (
+                <div key={k} className="grid grid-cols-[118px_1fr] gap-2">
+                  <dt className="text-[var(--mute)]">{k}</dt>
+                  <dd className="min-w-0 truncate text-[var(--ink)]">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          <div className="mt-3 flex items-center gap-2">
+            <div className="grid flex-1 grid-cols-3 gap-1">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className={`h-1 rounded-full ${i < answered ? "bg-[var(--green)]" : "bg-[var(--hair)]"}`} />
+              ))}
+            </div>
+            <span className="text-[11px] text-[var(--mute)]">{t("keyAnswered", { n: answered })}</span>
           </div>
         </div>
-        {/* Records at a glance */}
-        <p className="flex items-center gap-2 border-t border-[var(--hair)] pt-3 text-[12.5px] text-[var(--mute)]">
-          <History size={13} />
-          {visits.length ? (
-            <>
-              <span className="font-semibold text-[var(--ink)]">{visits.length === 1 ? t("visitsOne") : t("visitsCount", { n: visits.length })}</span>· {t("lastVisitOn", { date: fmtDay(visits[0].createdAt, lang) })}
-            </>
+        <div className="border-t border-[var(--hair)] bg-[var(--sunken)] px-5 py-4 sm:border-s sm:border-t-0">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{t("viewRecordsShort")}</p>
+          {last ? (
+            <div className="grid gap-1">
+              <p className="text-[22px] font-semibold leading-none text-[var(--ink)]">
+                {visits.length} <span className="text-[13px] font-normal text-[var(--mute)]">{visits.length === 1 ? t("visitWord") : t("visitsWord")}</span>
+              </p>
+              <p className="mt-1.5 truncate text-[13px] text-[var(--ink)]">{complaintText(last.symptoms, lang) || "—"}</p>
+              <p className="text-[12px] text-[var(--mute)]">{fmtDay(last.createdAt, lang)}</p>
+              <span
+                className={`mt-1.5 inline-flex w-fit items-center gap-1 rounded-(--radius-pill) px-2 py-0.5 text-[11px] font-semibold ${
+                  lastReleased ? "bg-[var(--green-tint)] text-[var(--color-green-ink)]" : "bg-[var(--white)] text-[var(--mute)]"
+                }`}
+              >
+                {lastReleased ? (last.rx.length ? t("rxReadyShort") : t("adviceOnly")) : t("inProgress")}
+              </span>
+            </div>
           ) : (
-            t("noVisitsYet")
+            <p className="text-[13px] leading-relaxed text-[var(--mute)]">{t("noVisitsYet")}</p>
           )}
-        </p>
+        </div>
       </div>
 
-      <div className="mt-auto grid grid-cols-2 gap-2 border-t border-[var(--hair)] bg-[var(--sunken)] px-4 py-3">
-        <button
-          type="button"
-          onClick={() => onOpen("profile")}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-(--radius-md) border border-[var(--line)] bg-[var(--white)] px-2 text-[13px] font-semibold text-[var(--ink)] hover:border-[var(--sky-300)]"
-        >
-          <UserRoundPen size={15} className="text-[var(--link)]" /> {state === "empty" ? t("fillProfile") : t("updateProfile")}
+      {/* Actions */}
+      <footer className="grid grid-cols-2 divide-x divide-[var(--hair)] border-t border-[var(--hair)] rtl:divide-x-reverse">
+        <button type="button" onClick={() => onOpen("profile")} className="group flex h-12 items-center justify-center gap-2 text-[13.5px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
+          <UserRoundPen size={16} /> {state === "empty" ? t("fillProfile") : t("updateProfile")}
         </button>
-        <button
-          type="button"
-          onClick={() => onOpen("records")}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-(--radius-md) border border-[var(--line)] bg-[var(--white)] px-2 text-[13px] font-semibold text-[var(--ink)] hover:border-[var(--sky-300)]"
-        >
-          <FileText size={15} className="text-[var(--link)]" /> {t("viewRecordsShort")}
+        <button type="button" onClick={() => onOpen("records")} className="group flex h-12 items-center justify-center gap-2 text-[13.5px] font-semibold text-[var(--link)] hover:bg-[var(--tint)]">
+          <FileText size={16} /> {t("viewRecordsBtn")}
+          <ArrowRight size={14} className={`transition-transform group-hover:translate-x-0.5 ${lang === "ur" ? "-scale-x-100" : ""}`} />
         </button>
-      </div>
+      </footer>
     </li>
   );
 }
