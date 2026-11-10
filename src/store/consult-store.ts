@@ -72,6 +72,8 @@ interface PlatformState {
   /** Copies a doctor as consult-api has them into the roster: matched by backend id, else by PMDC number
       (so the seeded demo doctors keep their consultations), else added. Returns the roster id. */
   syncDoctor: (input: DoctorFromApi) => string;
+  /** The admin's full list from consult-api, in one update: merges every doctor, and drops the ones the server no longer has. */
+  syncRoster: (list: DoctorFromApi[]) => void;
 
   setForceClinicOpen: (on: boolean) => void;
   setAutoConnect: (on: boolean) => void;
@@ -98,6 +100,41 @@ function initialsFrom(name: string) {
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "DR";
 }
 const doctorName = (doctors: Doctor[], id?: string) => doctors.find((d) => d.id === id)?.name ?? "Unknown doctor";
+
+const sameDoctor = (a: Doctor, b: Doctor | undefined) =>
+  !!b && a.id === b.id && a.userId === b.userId && a.username === b.username && a.name === b.name && a.pmdc === b.pmdc && a.available === b.available && a.active === b.active;
+
+/**
+ * Merges consult-api doctors into the roster: matched by backend id, else (once) by PMDC number so the seeded demo
+ * doctors keep their consultations, else added with the backend id. Pure: returns the new roster, each input's
+ * roster id, and whether anyone became available (so waiting patients can be routed).
+ */
+function mergeRoster(roster: Doctor[], list: DoctorFromApi[]): { doctors: Doctor[]; ids: string[]; switchedOn: boolean } {
+  const doctors = [...roster];
+  const ids: string[] = [];
+  let switchedOn = false;
+  for (const input of list) {
+    const at = doctors.findIndex((d) => d.userId === input.userId);
+    const index = at >= 0 ? at : doctors.findIndex((d) => !d.userId && samePmdc(d.pmdc, input.pmdc));
+    const found = index >= 0 ? doctors[index] : undefined;
+    const synced: Doctor = {
+      ...(found ?? { role: "gp" as const }),
+      id: found?.id ?? input.userId,
+      userId: input.userId,
+      username: input.username ?? found?.username,
+      name: input.name,
+      initials: initialsFrom(input.name),
+      pmdc: input.pmdc,
+      available: input.active && input.available,
+      active: input.active,
+    };
+    if (synced.available && !found?.available) switchedOn = true;
+    if (index >= 0) doctors[index] = synced;
+    else doctors.push(synced);
+    ids.push(synced.id);
+  }
+  return { doctors, ids, switchedOn };
+}
 
 function nextId(consultations: Consultation[]): string {
   const max = consultations.reduce((m, c) => Math.max(m, Number(c.id.replace(/\D/g, "")) || 0), 24000);
@@ -328,22 +365,21 @@ export const usePlatform = create<PlatformState>()(
 
         // No audit rows here: consult-api records the account changes itself.
         syncDoctor: (input) => {
-          const found = get().doctors.find((d) => d.userId === input.userId) ?? get().doctors.find((d) => !d.userId && samePmdc(d.pmdc, input.pmdc));
-          const id = found?.id ?? input.userId;
-          const synced: Doctor = {
-            ...(found ?? { role: "gp" as const }),
-            id,
-            userId: input.userId,
-            username: input.username ?? found?.username,
-            name: input.name,
-            initials: initialsFrom(input.name),
-            pmdc: input.pmdc,
-            available: input.active && input.available,
-            active: input.active,
-          };
-          set((s) => ({ doctors: found ? s.doctors.map((d) => (d.id === id ? synced : d)) : [...s.doctors, synced] }));
-          if (synced.available && !found?.available) runAssign();
-          return id;
+          const { doctors, ids, switchedOn } = mergeRoster(get().doctors, [input]);
+          set({ doctors });
+          if (switchedOn) runAssign();
+          return ids[0];
+        },
+
+        syncRoster: (list) => {
+          const merged = mergeRoster(get().doctors, list);
+          // A doctor the server no longer has (deleted) leaves the roster; demo-only doctors (no userId) stay.
+          const known = new Set(list.map((d) => d.userId));
+          const doctors = merged.doctors.filter((d) => !d.userId || known.has(d.userId));
+          const current = get().doctors;
+          const changed = doctors.length !== current.length || doctors.some((d, i) => !sameDoctor(d, current[i]));
+          if (changed) set({ doctors });
+          if (merged.switchedOn) runAssign();
         },
 
         setForceClinicOpen: (on) => {

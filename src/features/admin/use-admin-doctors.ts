@@ -6,31 +6,32 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { staffApi, type AdminDoctor } from "@/api/staff";
 import { useApiErrorHandler } from "@/features/portal/use-doctor-presence";
-import { usePlatform } from "@/store/consult-store";
+import { usePlatform, type DoctorFromApi } from "@/store/consult-store";
 
 export const ADMIN_DOCTORS_KEY = ["admin", "doctors"] as const;
 
 /** The server stops counting a switched-on doctor once their portal has been silent this long. */
 const GONE_AFTER_MS = 30_000;
 
-export const syncAdminDoctor = (d: AdminDoctor) =>
-  usePlatform.getState().syncDoctor({
-    userId: d.user_id,
-    username: d.username,
-    name: d.full_name,
-    pmdc: d.pmdc_no,
-    // Switched on AND still pinging: a doctor who closed the portal is not really available.
-    available: d.is_available && d.last_seen_at !== null && Date.now() - Date.parse(d.last_seen_at) < GONE_AFTER_MS,
-    active: d.is_active,
-  });
+const toRosterInput = (d: AdminDoctor): DoctorFromApi => ({
+  userId: d.user_id,
+  username: d.username,
+  name: d.full_name,
+  pmdc: d.pmdc_no,
+  // Switched on AND still pinging: a doctor who closed the portal is not really available.
+  available: d.is_available && d.last_seen_at !== null && Date.now() - Date.parse(d.last_seen_at) < GONE_AFTER_MS,
+  active: d.is_active,
+});
 
-/** Loads the doctors (refetched every 30 s, so availability stays current) and keeps the roster in step. */
+export const syncAdminDoctor = (d: AdminDoctor) => usePlatform.getState().syncDoctor(toRosterInput(d));
+
+/** Loads the doctors (refetched every 30 s, so availability stays current) and keeps the roster in step, in one update. */
 export function useAdminDoctors() {
   const onError = useApiErrorHandler();
   const query = useQuery({ queryKey: ADMIN_DOCTORS_KEY, queryFn: staffApi.listDoctors, refetchInterval: 30_000 });
 
   useEffect(() => {
-    query.data?.forEach(syncAdminDoctor);
+    if (query.data) usePlatform.getState().syncRoster(query.data.map(toRosterInput));
   }, [query.data]);
 
   useEffect(() => {

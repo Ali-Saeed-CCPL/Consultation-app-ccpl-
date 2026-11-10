@@ -14,13 +14,12 @@ import Avatar, { initialsOf } from "@/components/ui/avatar";
 import { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step";
 import MemberRecords, { useMemberVisits } from "@/features/patient/member-records";
 import ProfileForm, { cleanProfile } from "@/features/patient/profile-form";
-import { HOUSEHOLD } from "@/data/seed";
 import { conditionName, emptyProfile, keyAnswered, profileState, type ProfileState } from "@/lib/profile";
 import { complaintText } from "@/lib/complaint";
 import { useT, type StringKey } from "@/lib/i18n";
-import { usePlatform } from "@/store/consult-store";
+import { LoadFailed, Loading, actionError } from "@/features/patient/load-state";
+import { useConsultations, useHousehold, usePatientActions, useProfiles, type Household } from "@/features/patient/patient-data";
 import { useIntakeDraft } from "@/store/intake-draft";
-import { useSession } from "@/store/session-store";
 import type { HealthProfile, Lang, Member } from "@/lib/types";
 
 export type MembersView = "profile" | "records";
@@ -39,12 +38,19 @@ export default function MembersScreen({ memberId, view = "profile", visitId }: {
   const navigate = useNavigate();
   // Edits not yet saved, by member — kept while moving between members and views.
   const [drafts, setDrafts] = useState<Record<string, HealthProfile>>({});
-  const member = HOUSEHOLD.members.find((m) => m.id === memberId);
+  const household = useHousehold();
+  const profiles = useProfiles();
+  const failed = household.error ?? profiles.error;
+  if (failed) return <LoadFailed error={failed} />;
+  if (!household.data || !profiles.data) return <Loading />;
+  const member = household.data.members.find((m) => m.id === memberId);
   const go = (search: { member?: string; view?: MembersView; visit?: string }) => navigate({ to: "/patient/members", search, replace: Boolean(member && search.member) });
 
-  if (!member) return <MemberPicker drafts={drafts} onOpen={(m, v) => go({ member: m.id, view: v })} />;
+  if (!member) return <MemberPicker household={household.data} profiles={profiles.data} drafts={drafts} onOpen={(m, v) => go({ member: m.id, view: v })} />;
   return (
     <MemberDetail
+      household={household.data}
+      profiles={profiles.data}
       member={member}
       view={view}
       visitId={visitId}
@@ -60,15 +66,23 @@ export default function MembersScreen({ memberId, view = "profile", visitId }: {
 
 /* ── Step 1: pick a member ──────────────────────────────────────────────── */
 
-function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile>; onOpen: (m: Member, v: MembersView) => void }) {
+function MemberPicker({
+  household,
+  profiles,
+  drafts,
+  onOpen,
+}: {
+  household: Household;
+  profiles: Record<string, HealthProfile>;
+  drafts: Record<string, HealthProfile>;
+  onOpen: (m: Member, v: MembersView) => void;
+}) {
   const { t } = useT();
   const navigate = useNavigate();
-  const phone = useSession((s) => s.patientPhone);
-  const profiles = usePlatform((s) => s.profiles);
-  const consultations = usePlatform((s) => s.consultations);
-  const members = HOUSEHOLD.members;
+  const consultations = useConsultations().data ?? [];
+  const members = household.members;
   const complete = members.filter((m) => profileState(profiles[m.id], m) === "complete").length;
-  const visits = consultations.filter((c) => c.householdPhone === phone && c.callStartedAt).length;
+  const visits = consultations.filter((c) => c.callStartedAt).length;
   const allergies = members.reduce((n, m) => n + (profiles[m.id]?.allergies?.length ?? 0), 0);
   const stats: [string, string, React.ReactNode][] = [
     [t("hhMembers"), String(members.length), <Users key="i" size={16} />],
@@ -91,9 +105,9 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
             <ShieldCheck size={20} />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{HOUSEHOLD.partner}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--mute)]">{household.partner}</p>
             <p className="truncate font-mono text-[14px] font-semibold text-[var(--ink)]" dir="ltr">
-              {HOUSEHOLD.policy}
+              {household.policy}
             </p>
           </div>
         </div>
@@ -118,7 +132,7 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
       {/* ── Members ───────────────────────────────────────────────────── */}
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {members.map((m) => (
-          <MemberCard key={m.id} member={m} unsaved={Boolean(drafts[m.id])} onOpen={(v) => onOpen(m, v)} />
+          <MemberCard key={m.id} member={m} profile={profiles[m.id]} unsaved={Boolean(drafts[m.id])} onOpen={(v) => onOpen(m, v)} />
         ))}
       </ul>
     </div>
@@ -126,9 +140,8 @@ function MemberPicker({ drafts, onOpen }: { drafts: Record<string, HealthProfile
 }
 
 /** A compact member tile: who, the two or three things worth knowing at a glance, and the two ways in. */
-function MemberCard({ member: m, unsaved, onOpen }: { member: Member; unsaved: boolean; onOpen: (v: MembersView) => void }) {
+function MemberCard({ member: m, profile: p, unsaved, onOpen }: { member: Member; profile?: HealthProfile; unsaved: boolean; onOpen: (v: MembersView) => void }) {
   const { t, lang } = useT();
-  const p = usePlatform((s) => s.profiles[m.id]);
   const visits = useMemberVisits(m.id);
   const state = profileState(p, m);
   const last = visits[0];
@@ -199,6 +212,8 @@ function MemberCard({ member: m, unsaved, onOpen }: { member: Member; unsaved: b
 /* ── Step 2: one member — health profile or prescriptions & records ─────── */
 
 function MemberDetail({
+  household,
+  profiles,
   member,
   view,
   visitId,
@@ -209,6 +224,8 @@ function MemberDetail({
   onVisit,
   onBack,
 }: {
+  household: Household;
+  profiles: Record<string, HealthProfile>;
   member: Member;
   view: MembersView;
   visitId?: string;
@@ -221,8 +238,7 @@ function MemberDetail({
 }) {
   const { t, lang } = useT();
   const navigate = useNavigate();
-  const profiles = usePlatform((s) => s.profiles);
-  const saveProfile = usePlatform((s) => s.saveProfile);
+  const { saveProfile } = usePatientActions();
   const setIntakeMember = useIntakeDraft((s) => s.setMember);
   const visits = useMemberVisits(member.id);
   const saved = profiles[member.id];
@@ -234,10 +250,14 @@ function MemberDetail({
       const { [member.id]: _gone, ...rest } = d;
       return rest;
     });
-  const save = () => {
-    saveProfile(member, cleanProfile(draft));
-    discard();
-    toast.success(t("profileSaved"));
+  const save = async () => {
+    try {
+      await saveProfile.mutateAsync({ member, profile: cleanProfile(draft) });
+      discard();
+      toast.success(t("profileSaved"));
+    } catch (e) {
+      toast.error(actionError(e, t("actionFailed")));
+    }
   };
   const answered = keyAnswered(cleanProfile(draft));
   const name = (m: Member) => (lang === "ur" ? m.nameUr : m.name);
@@ -252,7 +272,7 @@ function MemberDetail({
         </button>
         <span className="mx-1 h-5 w-px bg-[var(--line)]" />
         <div className="flex flex-wrap gap-1.5">
-          {HOUSEHOLD.members.map((m) => {
+          {household.members.map((m) => {
             const on = m.id === member.id;
             return (
               <button
@@ -363,7 +383,7 @@ function MemberDetail({
             )}
             <span className="ms-auto flex gap-2">
               {dirty ? <SecondaryAction onClick={discard}>{t("discardChanges")}</SecondaryAction> : null}
-              <PrimaryAction disabled={!dirty} onClick={save}>
+              <PrimaryAction disabled={!dirty || saveProfile.isPending} onClick={() => void save()}>
                 {t("saveProfile")}
               </PrimaryAction>
             </span>

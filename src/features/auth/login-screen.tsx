@@ -1,29 +1,19 @@
 /* Sign-in screen — the ERP's login layout: a white brand panel on the left,
    the credential panel on the canvas to the right (stacked below `lg`).
-   One form for everyone; the account decides where it lands. Doctors and the
-   admin sign in against consult-api (features/auth/staff-sign-in.ts). The
-   patient account is still the demo one (data/seed.ts DEMO_ACCOUNTS) until the
-   patient login is connected. */
+   With VITE_API_URL set, the panel is ApiSignIn (patients by CNIC, staff by
+   username, all against consult-api). Without it, the demo patient account
+   (data/seed.ts DEMO_ACCOUNTS) still works, and staff are told to set the API. */
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MonitorSmartphone } from "lucide-react";
 import ThemeToggle from "@/components/common/theme-toggle";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
+import { USE_API } from "@/api/client";
+import ApiSignIn, { FieldLabel, inputClass } from "@/features/auth/api-sign-in";
 import { DEMO_ACCOUNTS, HOUSEHOLD } from "@/data/seed";
 import { signInStaff } from "@/features/auth/staff-sign-in";
 import { useSession } from "@/store/session-store";
-
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="mb-1.5 block font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-(--color-mute)">
-      {children}
-    </label>
-  );
-}
-
-const inputClass =
-  "w-full rounded-(--radius-md) border border-(--color-border-input) bg-(--color-surface) px-3.5 py-3 text-[13.5px] text-(--color-ink) outline-0 transition-colors placeholder:text-(--color-faint) focus:border-(--color-teal)";
 
 export default function LoginScreen() {
   const navigate = useNavigate();
@@ -83,6 +73,7 @@ export default function LoginScreen() {
       {/* ── Credential panel ────────────────────────────────────────────── */}
       <section className="flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-[470px]">
+          {USE_API ? <ApiSignIn /> : <>
           <form onSubmit={handleSubmit} noValidate>
             <h2 className="page-title !text-(--color-ink)">Sign in</h2>
 
@@ -167,6 +158,7 @@ export default function LoginScreen() {
               ))}
             </div>
           </div>
+          </>}
         </div>
       </section>
     </div>

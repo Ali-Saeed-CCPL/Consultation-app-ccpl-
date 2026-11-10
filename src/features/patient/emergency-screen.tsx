@@ -6,14 +6,17 @@ import { Ambulance, Hospital, Phone, Siren } from "lucide-react";
 import PatientStep, { SecondaryAction } from "@/features/patient/patient-step";
 import { RED_FLAGS } from "@/data/seed";
 import { pick, useT } from "@/lib/i18n";
-import { useConsult } from "@/store/consult-store";
+import { LoadFailed, Loading } from "@/features/patient/load-state";
+import { useConsultation } from "@/features/patient/patient-data";
 import { useSession } from "@/store/session-store";
 
 export default function EmergencyScreen() {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const consultId = useSession((s) => s.consultId);
-  const consult = useConsult(consultId ?? undefined);
+  const { data: consult, loading, error } = useConsultation(consultId);
+  if (error) return <LoadFailed error={error} />;
+  if (loading) return <Loading />;
   if (!consult || consult.status !== "emergency") return <Navigate to="/patient/choose" />;
   const flags = RED_FLAGS.filter((f) => consult.symptoms?.redFlags.includes(f.key));
 

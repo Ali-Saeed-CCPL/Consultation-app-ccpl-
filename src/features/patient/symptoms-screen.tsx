@@ -6,6 +6,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { AlertCircle, Brain, Check, CirclePlus, Hand, Pencil, ShieldAlert, Soup, Stethoscope, Pill, Thermometer, TriangleAlert, Wind, type LucideIcon } from "lucide-react";
 import Dialog from "@/components/ui/dialog";
 import PatientStep, { PrimaryAction, SecondaryAction } from "@/features/patient/patient-step";
@@ -14,7 +15,8 @@ import { allergiesText, conditionsText, emptyProfile, hasHistory, medicinesText 
 import type { HealthProfile, Member } from "@/lib/types";
 import { COMPLAINTS, DURATIONS, RED_FLAGS } from "@/data/seed";
 import { pick, useT } from "@/lib/i18n";
-import { useConsult, usePlatform } from "@/store/consult-store";
+import { LoadFailed, Loading, actionError } from "@/features/patient/load-state";
+import { useConsultation, usePatientActions, useProfiles } from "@/features/patient/patient-data";
 import { useIntakeDraft } from "@/store/intake-draft";
 import { complaintKeys } from "@/lib/complaint";
 import { useSession } from "@/store/session-store";
@@ -23,9 +25,10 @@ export default function SymptomsScreen() {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const consultId = useSession((s) => s.consultId);
-  const consult = useConsult(consultId ?? undefined);
-  const submitSymptoms = usePlatform((s) => s.submitSymptoms);
-  const profile = usePlatform((s) => (consult ? s.profiles[consult.member.id] : undefined));
+  const { data: consult, loading, error: loadError } = useConsultation(consultId);
+  const profiles = useProfiles();
+  const profile = consult ? profiles.data?.[consult.member.id] : undefined;
+  const { submitSymptoms } = usePatientActions();
 
   // Answers live in the shared draft so the side column can summarise them as they're given.
   const draftFor = useIntakeDraft((s) => s.consultId);
@@ -37,6 +40,10 @@ export default function SymptomsScreen() {
   useEffect(() => {
     if (consult) ensureFor(consult.id, consult.symptoms, Boolean(consult.profile));
   }, [consult?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- seed once per consultation
+
+  const failed = loadError ?? profiles.error;
+  if (failed) return <LoadFailed error={failed} />;
+  if (loading || profiles.loading) return <Loading />;
 
   // Reachable from intake, and from emergency guidance ("ticked one by mistake").
   // Once submitted the status moves on, and the queue screen takes over.
@@ -56,21 +63,23 @@ export default function SymptomsScreen() {
     patch({ redFlags: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] });
   };
 
-  const submit = () => {
+  const submit = async () => {
     if (!ready) {
       setTried(true);
       document.querySelector("[data-missing='true']")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    submitSymptoms(consult.id, {
-      complaint,
-      other: needsOther ? other.trim() : undefined,
-      duration,
-      severity,
-      details: details.trim(),
-      redFlags: redFlags!,
-    }, hasHistory(profile) ? profile : undefined, profileOk);
-    navigate({ to: redFlags!.length ? "/patient/emergency" : "/patient/queue" });
+    try {
+      const next = await submitSymptoms.mutateAsync({
+        id: consult.id,
+        symptoms: { complaint, other: needsOther ? other.trim() : undefined, duration, severity, details: details.trim(), redFlags: redFlags! },
+        profile: hasHistory(profile) ? profile : undefined,
+        profileConfirmed: profileOk,
+      });
+      navigate({ to: next === "emergency" ? "/patient/emergency" : "/patient/queue" });
+    } catch (e) {
+      toast.error(actionError(e, t("actionFailed")));
+    }
   };
 
   // The answers the doctor needs before the queue (severity always has a value; details are optional).
@@ -100,7 +109,7 @@ export default function SymptomsScreen() {
               </span>
             </span>
           )}
-          <PrimaryAction onClick={submit} aria-disabled={!ready}>
+          <PrimaryAction onClick={() => void submit()} aria-disabled={!ready || submitSymptoms.isPending}>
             {t("findDoctor")}
           </PrimaryAction>
         </>
@@ -288,7 +297,7 @@ function Chips({ options, value, onChange, multi }: { options: { key: string; la
     Skipped, the doctor asks on the call. */
 function HealthHistory({ member, profile, confirmed, onConfirm }: { member: Member; profile?: HealthProfile; confirmed: boolean; onConfirm: () => void }) {
   const { t, lang } = useT();
-  const saveProfile = usePlatform((s) => s.saveProfile);
+  const { saveProfile } = usePatientActions();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<HealthProfile>(emptyProfile);
   const has = hasHistory(profile);
@@ -297,10 +306,14 @@ function HealthHistory({ member, profile, confirmed, onConfirm }: { member: Memb
     setDraft(profile ?? emptyProfile());
     setEditing(true);
   };
-  const save = () => {
-    saveProfile(member, cleanProfile(draft));
-    setEditing(false);
-    onConfirm();
+  const save = async () => {
+    try {
+      await saveProfile.mutateAsync({ member, profile: cleanProfile(draft) });
+      setEditing(false);
+      onConfirm();
+    } catch (e) {
+      toast.error(actionError(e, t("actionFailed")));
+    }
   };
   const show = (v: string | null) => (v === null ? <span className="text-[var(--faint)]">{t("notAnswered")}</span> : v || <span className="text-[var(--mute)]">{t("noneLabel")}</span>);
   const allergies = allergiesText(profile);
@@ -369,7 +382,7 @@ function HealthHistory({ member, profile, confirmed, onConfirm }: { member: Memb
         footer={
           <>
             <SecondaryAction onClick={() => setEditing(false)}>{t("cancel")}</SecondaryAction>
-            <PrimaryAction disabled={!hasHistory(cleanProfile(draft))} onClick={save}>
+            <PrimaryAction disabled={!hasHistory(cleanProfile(draft)) || saveProfile.isPending} onClick={() => void save()}>
               {t("saveAndUse")}
             </PrimaryAction>
           </>

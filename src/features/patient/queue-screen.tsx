@@ -1,12 +1,22 @@
 /* Queue & assign GP — the patient's view. Watches the consultation: ringing
    a doctor, waiting for a free one (or outside clinic hours: wait or call
-   back), and hands over to the call screen the moment the doctor accepts. */
+   back), and hands over to the call screen the moment the doctor accepts.
+
+   From consult-api (ApiQueue): the screen pings every 15 s, which is what keeps
+   the place in the queue (2 minutes of silence ends the consultation), and the
+   answer gives the status and the place. */
 
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate } from "@tanstack/react-router";
 import { Check, Clock, LoaderCircle, PhoneCall, Stethoscope, Users } from "lucide-react";
+import { toast } from "sonner";
+import { USE_API } from "@/api/client";
+import { consultApi } from "@/api/consultation";
 import Avatar from "@/components/ui/avatar";
 import PatientStep from "@/features/patient/patient-step";
+import { LoadFailed, Loading, actionError } from "@/features/patient/load-state";
+import { patientKeys, useClinicOpen, useConsultation, usePatientActions } from "@/features/patient/patient-data";
 import { CLINIC_HOURS, isClinicOpen } from "@/lib/clinic";
 import { useT } from "@/lib/i18n";
 import { useConsult, usePlatform } from "@/store/consult-store";
@@ -15,7 +25,132 @@ import { useSession } from "@/store/session-store";
 /** How long the demo auto-answer "rings" before connecting. */
 const CONNECT_AFTER_MS = 4500;
 
+/** The API's pace for pings; the server ends a wait that goes quiet for 2 minutes. */
+const PING_MS = 15_000;
+
 export default function QueueScreen() {
+  // USE_API is fixed for the app's life, so each branch always runs the same hooks.
+  return USE_API ? <ApiQueue /> : <DemoQueue />;
+}
+
+function ApiQueue() {
+  const { t } = useT();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const consultId = useSession((s) => s.consultId);
+  const { data: consult, loading, error } = useConsultation(consultId);
+  const { leave } = usePatientActions();
+  const open = useClinicOpen();
+  const waiting = consult?.status === "queued" || consult?.status === "ringing";
+  const place = useQuery({
+    queryKey: ["patient", "ping", consultId],
+    queryFn: () => consultApi.ping(consultId!),
+    enabled: Boolean(consultId) && waiting,
+    refetchInterval: PING_MS,
+    refetchIntervalInBackground: true,
+  });
+  const status = place.data?.status ?? consult?.status;
+
+  // The ping saw the status move on (a doctor answered, or the wait ended): reload the consultation.
+  useEffect(() => {
+    if (consultId && place.data && consult && place.data.status !== consult.status) void qc.invalidateQueries({ queryKey: patientKeys.consult(consultId) });
+  }, [place.data?.status]); // eslint-disable-line react-hooks/exhaustive-deps -- react to a new status only
+  useEffect(() => {
+    if (status === "in_call") navigate({ to: "/patient/call" });
+  }, [status, navigate]);
+
+  if (error) return <LoadFailed error={error} />;
+  if (loading) return <Loading />;
+  if (!consult) return <Navigate to="/patient/choose" />;
+
+  if (status !== "queued" && status !== "ringing" && status !== "in_call") {
+    return (
+      <PatientStep step="queue" title={t("queueEnded")}>
+        <button type="button" onClick={() => navigate({ to: "/patient/home" })} className="text-[14px] font-semibold text-[var(--link)]">
+          {t("navHome")}
+        </button>
+      </PatientStep>
+    );
+  }
+
+  if (status === "ringing") {
+    return (
+      <PatientStep step="queue" title={t("queueRingingDoctor")} lede={t("queueRingingSub")}>
+        <div className="flex flex-col items-center rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] px-6 py-10">
+          <span className="relative inline-flex">
+            <span className="ring-halo" />
+            <span className="ring-halo delay" />
+            <span className="relative flex h-[72px] w-[72px] items-center justify-center rounded-full bg-[var(--primary)] text-[var(--ink)]">
+              <Stethoscope size={30} />
+            </span>
+          </span>
+          <p className="mt-5 inline-flex items-center gap-1.5 text-[13px] text-[var(--color-green-ink)]">
+            <PhoneCall size={14} /> {t("callConnecting")}
+          </p>
+        </div>
+      </PatientStep>
+    );
+  }
+
+  const position = place.data?.position ?? 1;
+  return (
+    <PatientStep
+      step="queue"
+      title={open ? t("queueWaiting") : t("queueClosed")}
+      lede={open ? t("queueWaitingSub", { n: position }) : t("queueClosedSub")}
+      footer={
+        <>
+          {open ? (
+            <p className="flex items-center justify-center gap-2 rounded-(--radius-md) bg-[var(--amber-tint)] px-3 py-2.5 text-[13.5px] font-medium text-[var(--amber-ink)]">
+              <span className="live-dot !bg-[var(--amber)]" /> {t("keepWaiting")}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={leave.isPending}
+            onClick={async () => {
+              try {
+                await leave.mutateAsync(consult.id);
+                navigate({ to: "/patient/choose" });
+              } catch (e) {
+                toast.error(actionError(e, t("actionFailed")));
+              }
+            }}
+            className="py-2 text-[13.5px] font-semibold text-[var(--color-red-ink)]"
+          >
+            {t("leaveQueue")}
+          </button>
+        </>
+      }
+    >
+      <QueueTiles position={position} />
+    </PatientStep>
+  );
+}
+
+/** The place in the queue and the clinic's hours. */
+function QueueTiles({ position }: { position: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      <div className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4">
+        <Users size={18} className="text-[var(--link)]" />
+        <div className="mt-2 font-mono text-[24px] font-semibold text-[var(--ink)]" dir="ltr">
+          #{position}
+        </div>
+      </div>
+      <div className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4">
+        <Clock size={18} className="text-[var(--link)]" />
+        <div className="mt-2 font-mono text-[13px] font-semibold leading-snug text-[var(--ink)]" dir="ltr">
+          {CLINIC_HOURS.days}
+          <br />
+          9:00–18:00 PKT
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DemoQueue() {
   const { t } = useT();
   const navigate = useNavigate();
   const consultId = useSession((s) => s.consultId);
@@ -104,22 +239,7 @@ export default function QueueScreen() {
         </>
       }
     >
-      <div className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4">
-          <Users size={18} className="text-[var(--link)]" />
-          <div className="mt-2 font-mono text-[24px] font-semibold text-[var(--ink)]" dir="ltr">
-            #{position}
-          </div>
-        </div>
-        <div className="rounded-(--radius-card) border border-[var(--line)] bg-[var(--white)] p-4">
-          <Clock size={18} className="text-[var(--link)]" />
-          <div className="mt-2 font-mono text-[13px] font-semibold leading-snug text-[var(--ink)]" dir="ltr">
-            {CLINIC_HOURS.days}
-            <br />
-            9:00–18:00 PKT
-          </div>
-        </div>
-      </div>
+      <QueueTiles position={position} />
     </PatientStep>
   );
 }

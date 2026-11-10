@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { complaintText } from "@/lib/complaint";
 import { translate } from "@/lib/i18n";
+import { USE_API } from "@/api/client";
 import { usePlatform } from "@/store/consult-store";
 import type { AuditEvent, Consultation, Lang } from "@/lib/types";
 
@@ -70,6 +71,8 @@ export function useNotifications(reader: Reader): AppNotification[] {
   const consultations = usePlatform((s) => s.consultations);
   const key = reader.kind === "doctor" ? reader.id : `${reader.phone}:${reader.lang}`;
   return useMemo(() => {
+    // From consult-api the patient's bell has no feed yet (a patient events endpoint is still to come).
+    if (USE_API && reader.kind === "patient") return [];
     const byId = new Map(consultations.map((c) => [c.id, c]));
     const out: AppNotification[] = [];
     for (const e of [...audit].sort((a, b) => b.at - a.at)) {

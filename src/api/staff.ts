@@ -42,20 +42,21 @@ export interface AdminDoctor {
 export const PING_EVERY_MS = 10_000;
 
 export const staffApi = {
-  login: (username: string, password: string) => api<{ token: string; user: StaffSession }>("POST", "/api/auth/staff/login", { username, password }),
+  login: (username: string, password: string) =>
+    api<{ token: string; user: StaffSession }>("POST", "/api/auth/staff/login", { auth: false, body: { username, password } }),
   me: () => api<StaffSession>("GET", "/api/staff/me"),
   /** Returns a fresh token: every older token (other devices) stops working. */
   changePassword: (current_password: string, new_password: string) =>
-    api<{ token: string }>("POST", "/api/staff/me/password", { current_password, new_password }),
+    api<{ token: string }>("POST", "/api/staff/me/password", { body: { current_password, new_password } }),
 
-  setAvailability: (available: boolean) => api<Presence>("PATCH", "/api/doctors/me/availability", { available }),
+  setAvailability: (available: boolean) => api<Presence>("PATCH", "/api/doctors/me/availability", { body: { available } }),
   ping: () => api<Presence>("POST", "/api/doctors/me/ping"),
 
   listDoctors: () => api<AdminDoctor[]>("GET", "/api/admin/doctors"),
   createDoctor: (input: { username: string; full_name: string; pmdc_no: string; password: string; email?: string | null }) =>
-    api<AdminDoctor>("POST", "/api/admin/doctors", input),
+    api<AdminDoctor>("POST", "/api/admin/doctors", { body: input }),
   updateDoctor: (userId: string, input: { full_name?: string; pmdc_no?: string; is_active?: boolean; email?: string | null }) =>
-    api<AdminDoctor>("PATCH", `/api/admin/doctors/${userId}`, input),
+    api<AdminDoctor>("PATCH", `/api/admin/doctors/${userId}`, { body: input }),
   /** A new temporary password; the doctor must change it at next sign-in and is signed out everywhere. */
-  resetDoctorPassword: (userId: string, password: string) => api<null>("POST", `/api/admin/doctors/${userId}/password`, { password }),
+  resetDoctorPassword: (userId: string, password: string) => api<null>("POST", `/api/admin/doctors/${userId}/password`, { body: { password } }),
 };

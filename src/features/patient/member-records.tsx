@@ -4,7 +4,8 @@
    alongside. A prescription shows only once the consulting doctor has approved it. */
 
 import { useState } from "react";
-import { Download, FileText, Mail, Printer, Video } from "lucide-react";
+import { Download, FileCheck2, FileText, Printer, Video } from "lucide-react";
+import { USE_API } from "@/api/client";
 import { SecondaryAction } from "@/features/patient/patient-step";
 import RxDocument, { downloadRx, rxLabels } from "@/features/consult/rx-document";
 import { CallSummary, IntakeRecord } from "@/features/patient/consult-record";
@@ -12,25 +13,24 @@ import { DURATIONS } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { fmtDateTime, fmtDuration } from "@/lib/clinic";
 import { pick, useT } from "@/lib/i18n";
-import { usePlatform } from "@/store/consult-store";
-import { useSession } from "@/store/session-store";
+import { isReleased, refOf, useConsultations, useDoctorLookup } from "@/features/patient/patient-data";
 import type { Consultation, Member } from "@/lib/types";
 
-/** The member's consultations that reached a doctor, newest first. */
+/** The member's consultations that reached a doctor, newest first (empty while loading). */
 export function useMemberVisits(memberId: string): Consultation[] {
-  const phone = useSession((s) => s.patientPhone);
-  const all = usePlatform((s) => s.consultations);
-  return all.filter((c) => c.householdPhone === phone && c.member.id === memberId && c.callStartedAt).sort((a, b) => b.createdAt - a.createdAt);
+  const all = useConsultations().data ?? [];
+  return all.filter((c) => c.member.id === memberId && c.callStartedAt);
 }
 
 export default function MemberRecords({ member, visitId, onVisit }: { member: Member; visitId?: string; onVisit: (id: string) => void }) {
   const { t, lang } = useT();
-  const doctors = usePlatform((s) => s.doctors);
+  const doctor = useDoctorLookup();
   const visits = useMemberVisits(member.id);
   const [tab, setTab] = useState<"rx" | "intake" | "call">("rx");
   const selected = visits.find((c) => c.id === visitId) ?? visits[0];
-  const released = selected && (selected.status === "approved" || selected.status === "closed");
-  const doctor = (id?: string) => doctors.find((d) => d.id === id);
+  const released = selected && isReleased(selected);
+  // The prescription itself comes from the prescription module; from consult-api it isn't connected yet.
+  const rxShown = released && !USE_API;
 
   if (!selected)
     return (
@@ -52,7 +52,7 @@ export default function MemberRecords({ member, visitId, onVisit }: { member: Me
           <ul className="max-h-[360px] overflow-y-auto p-2 slim-scrollbar">
             {visits.map((c) => {
               const on = c.id === selected.id;
-              const rx = c.status === "approved" || c.status === "closed";
+              const rx = isReleased(c);
               return (
                 <li key={c.id}>
                   <button
@@ -72,11 +72,11 @@ export default function MemberRecords({ member, visitId, onVisit }: { member: Me
                           rx ? "bg-[var(--green-tint)] text-[var(--color-green-ink)]" : "bg-[var(--sunken)] text-[var(--mute)]"
                         }`}
                       >
-                        {rx ? (c.rx.length ? t("prescriptionLabel") : t("adviceOnly")) : t("inProgress")}
+                        {rx ? (c.rx.length || USE_API ? t("prescriptionLabel") : t("adviceOnly")) : t("inProgress")}
                       </span>
                     </span>
                     <span className="block font-mono text-[11px] text-[var(--mute)]" dir="ltr">
-                      {fmtDateTime(c.createdAt)} · {c.id}
+                      {fmtDateTime(c.createdAt)} · {refOf(c)}
                     </span>
                   </button>
                 </li>
@@ -104,7 +104,7 @@ export default function MemberRecords({ member, visitId, onVisit }: { member: Me
             </dd>
             <dt className="text-[var(--mute)]">{t("refLabel")}</dt>
             <dd className="font-mono text-[12.5px] text-[var(--ink)]" dir="ltr">
-              {selected.id} · v{selected.rxVersion}
+              {refOf(selected)} · v{selected.rxVersion}
             </dd>
           </dl>
         </section>
@@ -133,11 +133,8 @@ export default function MemberRecords({ member, visitId, onVisit }: { member: Me
               </button>
             ))}
           </div>
-          {tab === "rx" && released ? (
+          {tab === "rx" && rxShown ? (
             <div className="flex items-center gap-2">
-              <span className="hidden items-center gap-1.5 text-[12.5px] text-[var(--mute)] 2xl:inline-flex">
-                <Mail size={14} /> {t("emailed")}
-              </span>
               <SecondaryAction onClick={() => downloadRx(selected.id)}>
                 <Download size={15} /> {t("download")}
               </SecondaryAction>
@@ -149,8 +146,13 @@ export default function MemberRecords({ member, visitId, onVisit }: { member: Me
         </div>
 
         {tab === "rx" ? (
-          released ? (
+          rxShown ? (
             <RxDocument consult={selected} prescriber={doctor(selected.prescriberId)} labels={rxLabels(t)} />
+          ) : released ? (
+            <div className="flex items-center gap-4 rounded-(--radius-card) border border-[var(--line)] bg-[var(--green-tint)] px-6 py-8">
+              <FileCheck2 size={26} className="flex-shrink-0 text-[var(--color-green-ink)]" />
+              <p className="text-[15px] font-semibold text-[var(--ink)]">{t("rxReleasedShowSoon")}</p>
+            </div>
           ) : (
             <div className="flex items-center gap-4 rounded-(--radius-card) border border-[var(--line)] bg-[var(--tint)] px-6 py-8">
               <Video size={26} className="flex-shrink-0 text-[var(--link)]" />

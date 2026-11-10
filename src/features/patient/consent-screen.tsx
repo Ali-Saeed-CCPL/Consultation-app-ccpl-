@@ -5,7 +5,8 @@ import { Navigate, useNavigate } from "@tanstack/react-router";
 import { Bot, Captions, ShieldCheck, Video } from "lucide-react";
 import PatientStep, { PrimaryAction } from "@/features/patient/patient-step";
 import { useT, type StringKey } from "@/lib/i18n";
-import { useConsult, usePlatform } from "@/store/consult-store";
+import { LoadFailed, Loading, actionError } from "@/features/patient/load-state";
+import { useConsultation, usePatientActions } from "@/features/patient/patient-data";
 import { useSession } from "@/store/session-store";
 
 const POINTS: { icon: typeof Video; key: StringKey }[] = [
@@ -16,12 +17,15 @@ const POINTS: { icon: typeof Video; key: StringKey }[] = [
 ];
 
 export default function ConsentScreen() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const navigate = useNavigate();
   const consultId = useSession((s) => s.consultId);
-  const consult = useConsult(consultId ?? undefined);
-  const giveConsent = usePlatform((s) => s.giveConsent);
+  const { data: consult, loading, error: loadError } = useConsultation(consultId);
+  const { consent } = usePatientActions();
   const [agreed, setAgreed] = useState(false);
+  const [error, setError] = useState("");
+  if (loadError) return <LoadFailed error={loadError} />;
+  if (loading) return <Loading />;
   if (!consult || consult.status !== "intake") return <Navigate to="/patient/choose" />;
 
   return (
@@ -30,15 +34,27 @@ export default function ConsentScreen() {
       back="/patient/choose"
       title={t("consentTitle")}
       footer={
-        <PrimaryAction
-          disabled={!agreed}
-          onClick={() => {
-            giveConsent(consult.id);
-            navigate({ to: "/patient/symptoms" });
-          }}
-        >
-          {t("continue")}
-        </PrimaryAction>
+        <>
+          {error ? (
+            <p role="alert" className="text-[13px] font-medium text-[var(--color-red-ink)]">
+              {error}
+            </p>
+          ) : null}
+          <PrimaryAction
+            disabled={!agreed || consent.isPending}
+            onClick={async () => {
+              setError("");
+              try {
+                await consent.mutateAsync({ id: consult.id, lang });
+                navigate({ to: "/patient/symptoms" });
+              } catch (e) {
+                setError(actionError(e, t("actionFailed")));
+              }
+            }}
+          >
+            {t("continue")}
+          </PrimaryAction>
+        </>
       }
     >
       <ul className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">

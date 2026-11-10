@@ -1,4 +1,5 @@
 import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
+import { tokens } from '@/api/client'
 import PortalShell from '@/components/layout/portal-shell'
 import { useDoctorHeartbeat } from '@/features/portal/use-doctor-presence'
 import { useSession } from '@/store/session-store'
@@ -12,10 +13,9 @@ export const Route = createFileRoute('/portal')({
 
 function PortalLayout() {
   const doctor = useCurrentDoctor()
-  const token = useSession((s) => s.staffToken)
   const mustChangePassword = useSession((s) => s.mustChangePassword)
   // The server is the real check on every request; this only keeps a signed-out tab off the portal.
-  if (!doctor || doctor.active === false || !token) return <Navigate to="/login" replace />
+  if (!doctor || doctor.active === false || !tokens.hasStaff()) return <Navigate to="/login" replace />
   if (mustChangePassword) return <Navigate to="/change-password" replace />
   return <SignedInPortal doctor={doctor} />
 }

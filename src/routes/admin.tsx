@@ -1,4 +1,5 @@
 import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
+import { tokens } from '@/api/client'
 import PortalShell from '@/components/layout/portal-shell'
 import { useAdminDoctors } from '@/features/admin/use-admin-doctors'
 import { useSession } from '@/store/session-store'
@@ -10,10 +11,9 @@ export const Route = createFileRoute('/admin')({
 
 function AdminLayout() {
   const isAdmin = useSession((s) => s.isAdmin)
-  const token = useSession((s) => s.staffToken)
   const mustChangePassword = useSession((s) => s.mustChangePassword)
   // The server checks the admin role on every request; this only keeps a signed-out tab off the portal.
-  if (!isAdmin || !token) return <Navigate to="/login" replace />
+  if (!isAdmin || !tokens.hasStaff()) return <Navigate to="/login" replace />
   if (mustChangePassword) return <Navigate to="/change-password" replace />
   return <SignedInAdmin />
 }

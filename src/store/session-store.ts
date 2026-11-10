@@ -1,7 +1,6 @@
 /* Who is using this tab. Kept in sessionStorage, so one browser can hold a
-   patient tab and two doctor tabs at once. Doctors and the admin sign in against
-   consult-api and keep its token here; the patient side is still the demo
-   sign-in until the patient login is connected. */
+   patient tab and two doctor tabs at once. The API tokens themselves live in
+   api/client.ts (tokens); api/session-sync.ts clears them when this session ends. */
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -17,22 +16,20 @@ interface SessionState {
   isAdmin: boolean;
   /** The login name this tab signed in with — shown in the account menu. */
   username: string | null;
-  /** consult-api token of the signed-in doctor or admin. The server checks it on every request. */
-  staffToken: string | null;
   /** Signed in with a temporary password: only the change-password screen is open until it's changed. */
   mustChangePassword: boolean;
 
   setLang: (lang: Lang) => void;
   signInPatient: (phone: string, username: string) => void;
   setConsult: (id: string | null) => void;
-  signInDoctor: (id: string, username: string, token: string, mustChangePassword: boolean) => void;
-  signInAdmin: (username: string, token: string, mustChangePassword: boolean) => void;
-  /** After a password change: the new token (the old one no longer works). */
-  passwordChanged: (token: string) => void;
+  signInDoctor: (id: string, username: string, mustChangePassword: boolean) => void;
+  signInAdmin: (username: string, mustChangePassword: boolean) => void;
+  /** The temporary password was replaced (the caller has stored the new token). */
+  passwordChanged: () => void;
   signOut: () => void;
 }
 
-const signedOut = { patientPhone: null, consultId: null, doctorId: null, isAdmin: false, username: null, staffToken: null, mustChangePassword: false };
+const signedOut = { patientPhone: null, consultId: null, doctorId: null, isAdmin: false, username: null, mustChangePassword: false };
 
 export const useSession = create<SessionState>()(
   persist(
@@ -42,11 +39,12 @@ export const useSession = create<SessionState>()(
       setLang: (lang) => set({ lang }),
       signInPatient: (phone, username) => set({ ...signedOut, patientPhone: phone, username }),
       setConsult: (consultId) => set({ consultId }),
-      signInDoctor: (doctorId, username, staffToken, mustChangePassword) => set({ ...signedOut, doctorId, username, staffToken, mustChangePassword }),
-      signInAdmin: (username, staffToken, mustChangePassword) => set({ ...signedOut, isAdmin: true, username, staffToken, mustChangePassword }),
-      passwordChanged: (staffToken) => set({ staffToken, mustChangePassword: false }),
+      signInDoctor: (doctorId, username, mustChangePassword) => set({ ...signedOut, doctorId, username, mustChangePassword }),
+      signInAdmin: (username, mustChangePassword) => set({ ...signedOut, isAdmin: true, username, mustChangePassword }),
+      passwordChanged: () => set({ mustChangePassword: false }),
       signOut: () => set(signedOut),
     }),
-    { name: "dc-session", storage: createJSONStorage(() => sessionStorage) },
+    // v1 dropped the staff token from here (it lives in api/client.ts now).
+    { name: "dc-session", version: 1, storage: createJSONStorage(() => sessionStorage) },
   ),
 );

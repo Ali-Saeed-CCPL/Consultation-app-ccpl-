@@ -5,7 +5,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ApiError } from "@/api/client";
+import { ApiError, tokens } from "@/api/client";
 import { staffApi } from "@/api/staff";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
 import { useSession } from "@/store/session-store";
@@ -15,8 +15,8 @@ const MAX_BYTES = 72;
 
 export default function ChangePasswordScreen() {
   const navigate = useNavigate();
-  const token = useSession((s) => s.staffToken);
   const isAdmin = useSession((s) => s.isAdmin);
+  const doctorId = useSession((s) => s.doctorId);
   const forced = useSession((s) => s.mustChangePassword);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -24,7 +24,7 @@ export default function ChangePasswordScreen() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  if (!token) return <Navigate to="/login" replace />;
+  if ((!isAdmin && !doctorId) || !tokens.hasStaff()) return <Navigate to="/login" replace />;
   const home = isAdmin ? "/admin/dashboard" : "/portal/dashboard";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -38,7 +38,8 @@ export default function ChangePasswordScreen() {
     setSaving(true);
     try {
       const { token: fresh } = await staffApi.changePassword(current, next);
-      useSession.getState().passwordChanged(fresh);
+      tokens.setStaff(fresh);
+      useSession.getState().passwordChanged();
       toast.success("Password changed");
       navigate({ to: home, replace: true });
     } catch (e) {

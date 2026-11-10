@@ -141,6 +141,8 @@ export interface ClinicalNotes {
 
 export interface Consultation {
   id: string;
+  /** The reference shown to people (DC-…) when it differs from `id` (from consult-api, `id` is a uuid). */
+  ref?: string;
   householdPhone: string;
   member: Member;
   lang: Lang;

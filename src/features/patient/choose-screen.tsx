@@ -2,15 +2,16 @@
    the policy is eligible for now, so Continue opens the consultation and goes
    straight to consent (no cover check). */
 
+import { useState } from "react";
 import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { Check, FileText, History } from "lucide-react";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
 import PatientStep, { PrimaryAction } from "@/features/patient/patient-step";
-import { HOUSEHOLD } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { fmtDateTime } from "@/lib/clinic";
 import { useT, type StringKey } from "@/lib/i18n";
-import { useConsult, usePlatform } from "@/store/consult-store";
+import { LoadFailed, Loading, actionError } from "@/features/patient/load-state";
+import { useConsultation, useConsultations, useHousehold, usePatientActions } from "@/features/patient/patient-data";
 import { useIntakeDraft } from "@/store/intake-draft";
 import { useSession } from "@/store/session-store";
 
@@ -23,24 +24,32 @@ export default function ChooseScreen() {
   const setMemberId = useIntakeDraft((s) => s.setMember);
   const consultId = useSession((s) => s.consultId);
   const setConsult = useSession((s) => s.setConsult);
-  const current = useConsult(consultId ?? undefined);
-  const startConsultation = usePlatform((s) => s.startConsultation);
-  const consultations = usePlatform((s) => s.consultations);
+  const current = useConsultation(consultId).data;
+  const household = useHousehold();
+  const consultations = useConsultations();
+  const { start } = usePatientActions();
+  const [error, setError] = useState("");
   if (!phone) return <Navigate to="/login" />;
-  /** Each person's most recent consultation, to help pick the right one. */
-  const lastVisit = (id: string) =>
-    consultations
-      .filter((c) => c.householdPhone === phone && c.member.id === id && c.callStartedAt)
-      .sort((a, b) => b.createdAt - a.createdAt)[0];
+  const failed = household.error ?? consultations.error;
+  if (failed) return <LoadFailed error={failed} />;
+  if (!household.data || !consultations.data) return <Loading />;
+  const { members, policy } = household.data;
+  /** Each person's most recent consultation, to help pick the right one (the list is newest first). */
+  const lastVisit = (id: string) => consultations.data!.find((c) => c.member.id === id && c.callStartedAt);
 
-  const next = () => {
-    const member = HOUSEHOLD.members.find((m) => m.id === memberId);
+  const next = async () => {
+    const member = members.find((m) => m.id === memberId);
     if (!member) return;
-    // Back here from consent for the same person: carry on with that consultation, don't open another.
-    if (!(current && current.status === "intake" && current.member.id === member.id)) {
-      setConsult(startConsultation(phone, member, lang).id);
+    setError("");
+    try {
+      // Back here from consent for the same person: carry on with that consultation, don't open another.
+      if (!(current && current.status === "intake" && current.member.id === member.id)) {
+        setConsult(await start.mutateAsync({ member, lang }));
+      }
+      navigate({ to: "/patient/consent" });
+    } catch (e) {
+      setError(actionError(e, t("actionFailed")));
     }
-    navigate({ to: "/patient/consent" });
   };
 
   return (
@@ -48,10 +57,15 @@ export default function ChooseScreen() {
       step="choose"
       even
       title={t("chooseTitle")}
-      lede={t("chooseLede", { policy: HOUSEHOLD.policy })}
+      lede={t("chooseLede", { policy })}
       footer={
         <>
-          <PrimaryAction disabled={!memberId} onClick={next}>
+          {error ? (
+            <p role="alert" className="text-[13px] font-medium text-[var(--color-red-ink)]">
+              {error}
+            </p>
+          ) : null}
+          <PrimaryAction disabled={!memberId || start.isPending} onClick={() => void next()}>
             {t("continue")}
           </PrimaryAction>
           <Link
@@ -64,7 +78,7 @@ export default function ChooseScreen() {
       }
     >
       <div role="radiogroup" className="grid gap-3.5 sm:grid-cols-2">
-        {HOUSEHOLD.members.map((m) => {
+        {members.map((m) => {
           const selected = memberId === m.id;
           const last = lastVisit(m.id);
           const complaint = last ? complaintText(last.symptoms, lang) : "";
