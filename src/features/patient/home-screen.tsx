@@ -5,13 +5,13 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, CalendarClock, CalendarDays, ClipboardList, Clock, FileCheck2, Headphones, PhoneCall, Siren, Stethoscope, Users, Video } from "lucide-react";
 import Avatar, { initialsOf } from "@/components/ui/avatar";
-import { HOUSEHOLD } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { hasHistory } from "@/lib/profile";
-import { fmtDateTime, greetingKey, isClinicOpen, nextOpening, CLINIC_HOURS } from "@/lib/clinic";
+import { fmtDateTime, greetingKey, nextOpening, CLINIC_HOURS } from "@/lib/clinic";
 import { useT, type StringKey } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
-import { usePlatform } from "@/store/consult-store";
+import { LoadFailed, Loading } from "@/features/patient/load-state";
+import { isReleased, refOf, useClinicOpen, useConsultation, useConsultations, useDoctorLookup, useClinicNow, useHousehold, useProfiles } from "@/features/patient/patient-data";
 import { useSession } from "@/store/session-store";
 import type { ConsultStatus } from "@/lib/types";
 
@@ -27,21 +27,25 @@ export default function HomeScreen() {
   const { t, lang } = useT();
   const navigate = useNavigate();
   const now = useNow(30_000);
-  const phone = useSession((s) => s.patientPhone)!;
   const consultId = useSession((s) => s.consultId);
-  const consultations = usePlatform((s) => s.consultations);
-  const doctors = usePlatform((s) => s.doctors);
-  const profiles = usePlatform((s) => s.profiles);
-  const forceOpen = usePlatform((s) => s.forceClinicOpen);
+  const household = useHousehold();
+  const consultations = useConsultations();
+  const profilesQ = useProfiles();
+  const current = useConsultation(consultId);
+  const doctorOf = useDoctorLookup();
+  const freeDoctors = useClinicNow().free;
+  const open = useClinicOpen(now);
 
-  const holder = HOUSEHOLD.members.find((m) => m.relation === "self")!;
-  const firstName = (lang === "ur" ? holder.nameUr : holder.name).split(" ")[0];
-  const open = forceOpen || isClinicOpen(now);
-  const busy = new Set(consultations.filter((c) => c.status === "in_call" || c.status === "ringing").map((c) => c.prescriberId));
-  const freeDoctors = doctors.filter((d) => d.available && !busy.has(d.id)).length;
-  const mine = consultations.filter((c) => c.householdPhone === phone).sort((a, b) => b.createdAt - a.createdAt);
-  const active = mine.find((c) => c.id === consultId && RESUME[c.status]);
-  const rxReady = mine.filter((c) => c.status === "approved" || c.status === "closed").length;
+  const failed = household.error ?? consultations.error ?? profilesQ.error;
+  if (failed) return <LoadFailed error={failed} />;
+  if (!household.data || !consultations.data || !profilesQ.data) return <Loading />;
+  const members = household.data.members;
+  const profiles = profilesQ.data;
+  const holder = members.find((m) => m.relation === "self") ?? members[0];
+  const firstName = holder ? (lang === "ur" ? holder.nameUr : holder.name).split(" ")[0] : "";
+  const mine = consultations.data;
+  const active = current.data && RESUME[current.data.status] ? current.data : undefined;
+  const rxReady = mine.filter(isReleased).length;
   const recent = mine.filter((c) => c.status !== "intake").slice(0, 6);
   const locale = lang === "ur" ? "ur-PK" : "en-PK";
   const dateLine = new Date(now).toLocaleDateString(locale, { timeZone: CLINIC_HOURS.tz, weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -65,7 +69,7 @@ export default function HomeScreen() {
               note={open ? t("clinicClosesAt") : t("clinicOpensAt", { time: fmtDateTime(nextOpening(now)) })}
             />
             <StatusTile tone={freeDoctors ? "ok" : "warn"} icon={<Stethoscope size={16} />} title={t(freeDoctors === 1 ? "doctorFree" : "doctorsFree", { n: freeDoctors })} note={`${CLINIC_HOURS.days} · 9–6`} />
-            <StatusTile tone="neutral" icon={<CalendarClock size={16} />} title={t("estWait")} note={HOUSEHOLD.partner} />
+            <StatusTile tone="neutral" icon={<CalendarClock size={16} />} title={t("estWait")} note={household.data.partner} />
             <StatusTile
               tone={rxReady ? "ok" : "neutral"}
               icon={<FileCheck2 size={16} />}
@@ -114,7 +118,7 @@ export default function HomeScreen() {
                 onClick={() => navigate({ to: RESUME[active.status]! })}
                 className="inline-flex items-center gap-2 h-10 rounded-(--radius-md) border border-[var(--green)] bg-[var(--green)] px-5 text-[14px] font-semibold text-[var(--color-on-fill)] hover:brightness-110"
               >
-                <PhoneCall size={16} /> {t("resumeCta")} <span className="font-mono text-[12px] opacity-80">{active.id}</span>
+                <PhoneCall size={16} /> {t("resumeCta")} <span className="font-mono text-[12px] opacity-80">{refOf(active)}</span>
               </button>
             ) : null}
             <button
@@ -131,7 +135,7 @@ export default function HomeScreen() {
         <Card
           title={t("familyTitle")}
           icon={<Users size={16} />}
-          sub={<span className="font-mono" dir="ltr">{HOUSEHOLD.policy}</span>}
+          sub={<span className="font-mono" dir="ltr">{household.data.policy}</span>}
           action={
             <Link to="/patient/members" className="text-[13px] font-semibold">
               {t("navMembers")}
@@ -139,7 +143,7 @@ export default function HomeScreen() {
           }
         >
           <ul className="divide-y divide-[var(--hair)]">
-            {HOUSEHOLD.members.map((m) => (
+            {members.map((m) => (
               <li key={m.id}>
                 <Link to="/patient/members" search={{ member: m.id, view: "profile" }} className="-mx-2 flex items-center gap-3 rounded-(--radius-md) px-2 py-2.5 !no-underline hover:bg-[var(--sunken)]">
                 <Avatar initials={initialsOf(m.name)} size={34} />
@@ -185,7 +189,7 @@ export default function HomeScreen() {
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {recent.map((c) => {
                 const complaint = complaintText(c.symptoms, lang);
-                const doctor = doctors.find((d) => d.id === c.prescriberId);
+                const doctor = doctorOf(c.prescriberId);
                 return (
                   <li key={c.id}>
                     <Link

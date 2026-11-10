@@ -11,6 +11,7 @@ import '@fontsource-variable/manrope'
 import '@fontsource-variable/noto-sans-arabic'
 
 import { queryClient } from '@/lib/query-client'
+import '@/api/session-sync'
 import { router } from './router'
 import './index.css'
 

@@ -17,12 +17,12 @@ import type { ReactNode } from "react";
 const RAIL_H = "lg:max-h-[calc(100dvh-158px)]";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, ArrowLeft, Check, Headphones, LifeBuoy, Lightbulb } from "lucide-react";
-import { DURATIONS, HOUSEHOLD, RED_FLAGS } from "@/data/seed";
+import { DURATIONS, RED_FLAGS } from "@/data/seed";
 import { complaintKeys, complaintText } from "@/lib/complaint";
-import { fmtTime, isClinicOpen } from "@/lib/clinic";
+import { fmtTime } from "@/lib/clinic";
 import { pick, useT, type StringKey } from "@/lib/i18n";
 import { useNow } from "@/lib/use-now";
-import { useConsult, usePlatform } from "@/store/consult-store";
+import { refOf, useClinicNow, useClinicOpen, useConsultation, useHousehold } from "@/features/patient/patient-data";
 import { useIntakeDraft } from "@/store/intake-draft";
 import { useSession } from "@/store/session-store";
 import type { Consultation, ConsultStatus } from "@/lib/types";
@@ -103,7 +103,7 @@ function CompactSteps({ step }: { step: PatientStepKey }) {
 /** This tab's consultation, if it's the one being walked through now. */
 function useJourneyConsult(step: PatientStepKey): Consultation | undefined {
   const consultId = useSession((s) => s.consultId);
-  const consult = useConsult(consultId ?? undefined);
+  const consult = useConsultation(consultId).data;
   // On "choose" a finished consultation from earlier isn't part of this journey.
   if (!consult) return undefined;
   if (step === "choose" && !IN_PROGRESS.includes(consult.status)) return undefined;
@@ -129,6 +129,7 @@ function stepLink(key: PatientStepKey, c: Consultation | undefined): { to: strin
 function JourneyRail({ step }: { step: PatientStepKey }) {
   const { t, lang } = useT();
   const consult = useJourneyConsult(step);
+  const partner = useHousehold().data?.partner ?? "";
   const current = PATIENT_STEPS.indexOf(step);
 
   return (
@@ -139,11 +140,11 @@ function JourneyRail({ step }: { step: PatientStepKey }) {
           <>
             <p className="mt-1.5 text-[15px] font-semibold text-[var(--ink)]">{lang === "ur" ? consult.member.nameUr : consult.member.name}</p>
             <p className="font-mono text-[11.5px] text-[var(--mute)]" dir="ltr">
-              {consult.id} · {consult.member.mrn}
+              {refOf(consult)} · {consult.member.mrn}
             </p>
           </>
         ) : (
-          <p className="mt-1.5 text-[13px] text-[var(--body)]">{HOUSEHOLD.partner}</p>
+          <p className="mt-1.5 text-[13px] text-[var(--body)]">{partner}</p>
         )}
       </div>
       <ol className="flex flex-col gap-1 px-3 py-3">
@@ -212,12 +213,12 @@ function JourneyInfo({ step, even }: { step: PatientStepKey; even?: boolean }) {
   const draftMemberId = useIntakeDraft((s) => s.memberId);
   const draftFor = useIntakeDraft((s) => s.consultId);
   const draft = useIntakeDraft((s) => s.symptoms);
-  const consultations = usePlatform((s) => s.consultations);
-  const doctors = usePlatform((s) => s.doctors);
-  const forceOpen = usePlatform((s) => s.forceClinicOpen);
+  const members = useHousehold().data?.members ?? [];
+  const { free, waiting } = useClinicNow();
+  const open = useClinicOpen(now);
 
   // Who: the consultation's member once it exists, else whoever is picked on "choose".
-  const member = consult?.member ?? HOUSEHOLD.members.find((m) => m.id === draftMemberId);
+  const member = consult?.member ?? members.find((m) => m.id === draftMemberId);
   // What: the unsent answers while on the symptoms step, else what was submitted.
   const s = consult && draftFor === consult.id && step === "symptoms" ? draft : consult?.symptoms ? { ...consult.symptoms, other: consult.symptoms.other ?? "" } : null;
   const complaint = s ? complaintText(s, lang) : "";
@@ -225,10 +226,6 @@ function JourneyInfo({ step, even }: { step: PatientStepKey; even?: boolean }) {
   const flags = s?.redFlags ? RED_FLAGS.filter((f) => s.redFlags!.includes(f.key)) : [];
   const severityWord = s ? (s.severity >= 7 ? t("sevSevere") : s.severity >= 4 ? t("sevModerate") : t("sevMild")) : "";
 
-  const open = forceOpen || isClinicOpen(now);
-  const busy = new Set(consultations.filter((c) => c.status === "in_call" || c.status === "ringing").map((c) => c.prescriberId));
-  const free = doctors.filter((d) => d.available && !busy.has(d.id)).length;
-  const waiting = consultations.filter((c) => c.status === "queued").length;
 
   // Tips follow the step and the answers.
   const tips: { tone: "info" | "warn" | "err"; text: string | string[] }[] = [];

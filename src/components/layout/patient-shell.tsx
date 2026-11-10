@@ -13,7 +13,7 @@ import NotificationBell from "@/components/layout/notification-bell";
 import UserMenu from "@/components/layout/user-menu";
 import { initialsOf } from "@/components/ui/avatar";
 import { BRAND, LOGO_SRC } from "@/config/app.constants";
-import { HOUSEHOLD } from "@/data/seed";
+import { useHousehold } from "@/features/patient/patient-data";
 import { useT, type StringKey } from "@/lib/i18n";
 import { useSession } from "@/store/session-store";
 import type { Lang } from "@/lib/types";
@@ -35,7 +35,8 @@ export default function PatientShell({ children }: { children: ReactNode }) {
   const username = useSession((s) => s.username);
   const signOut = useSession((s) => s.signOut);
   const navigate = useNavigate();
-  const holder = HOUSEHOLD.members.find((m) => m.relation === "self")!;
+  const members = useHousehold().data?.members ?? [];
+  const holder = members.find((m) => m.relation === "self") ?? { name: username ?? "", nameUr: username ?? "" };
 
   return (
     <div className="min-h-screen bg-[var(--canvas)]" lang={lang} dir={lang === "ur" ? "rtl" : "ltr"}>

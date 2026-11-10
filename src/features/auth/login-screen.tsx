@@ -3,25 +3,16 @@
    One form for both views; the account decides where it lands. Demo
    accounts only until ccpl-api auth is wired in (data/seed.ts DEMO_ACCOUNTS). */
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { MonitorSmartphone, ShieldCheck, Stethoscope } from "lucide-react";
 import ThemeToggle from "@/components/common/theme-toggle";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
+import { USE_API } from "@/api/client";
+import ApiSignIn, { FieldLabel, inputClass } from "@/features/auth/api-sign-in";
 import { DEMO_ACCOUNTS, HOUSEHOLD } from "@/data/seed";
 import { usePlatform } from "@/store/consult-store";
 import { useSession } from "@/store/session-store";
-
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="mb-1.5 block font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-(--color-mute)">
-      {children}
-    </label>
-  );
-}
-
-const inputClass =
-  "w-full rounded-(--radius-md) border border-(--color-border-input) bg-(--color-surface) px-3.5 py-3 text-[13.5px] text-(--color-ink) outline-0 transition-colors placeholder:text-(--color-faint) focus:border-(--color-teal)";
 
 export default function LoginScreen() {
   const navigate = useNavigate();
@@ -90,6 +81,7 @@ export default function LoginScreen() {
       {/* ── Credential panel ────────────────────────────────────────────── */}
       <section className="flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-[470px]">
+          {USE_API ? <ApiSignIn /> : <>
           <form onSubmit={handleSubmit} noValidate>
             <h2 className="page-title !text-(--color-ink)">Sign in</h2>
 
@@ -173,6 +165,7 @@ export default function LoginScreen() {
               ))}
             </div>
           </div>
+          </>}
         </div>
       </section>
     </div>

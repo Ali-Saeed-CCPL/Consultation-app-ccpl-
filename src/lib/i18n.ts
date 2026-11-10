@@ -342,6 +342,15 @@ const STRINGS = {
   aiChecked: { en: "AI assist, checked by the doctor", ur: "اے آئی اسسٹ، ڈاکٹر سے چیک شدہ" },
   download: { en: "Download PDF", ur: "پی ڈی ایف ڈاؤن لوڈ کریں" },
   emailed: { en: "Also sent to your email", ur: "آپ کی ای میل پر بھی بھیجا گیا" },
+
+  // Ali: loading from consult-api
+  loadingData: { en: "Loading…", ur: "لوڈ ہو رہا ہے…" },
+  loadFailed: { en: "We couldn't load this. Check your connection and try again.", ur: "یہ لوڈ نہیں ہو سکا۔ کنکشن چیک کریں اور دوبارہ کوشش کریں۔" },
+  tryAgain: { en: "Try again", ur: "دوبارہ کوشش کریں" },
+  actionFailed: { en: "That didn't work. Please try again.", ur: "یہ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔" },
+  rxReleasedShowSoon: { en: "The doctor has released your prescription. Viewing it here is coming soon.", ur: "ڈاکٹر نے آپ کا نسخہ جاری کر دیا ہے۔ اسے یہاں دیکھنے کی سہولت جلد آ رہی ہے۔" },
+  queueRingingDoctor: { en: "Ringing a doctor", ur: "ڈاکٹر کو کال جا رہی ہے" },
+  queueEnded: { en: "This consultation has ended.", ur: "یہ مشاورت ختم ہو گئی ہے۔" },
 } satisfies Record<string, Record<Lang, string>>;
 
 export type StringKey = keyof typeof STRINGS;
