@@ -20,6 +20,7 @@ import { DURATIONS } from "@/data/seed";
 import { complaintText } from "@/lib/complaint";
 import { CLINIC_HOURS, fmtDuration, fmtTime, greetingKey, isOthersActive } from "@/lib/clinic";
 import LiveClock from "@/components/common/live-clock";
+import { useAvailabilityToggle } from "@/features/portal/use-doctor-presence";
 import { usePlatform } from "@/store/consult-store";
 import { useCurrentDoctor } from "@/store/use-current-doctor";
 import type { Consultation, Doctor } from "@/lib/types";
@@ -34,6 +35,7 @@ const span = (ms: number) => {
 
 export default function DashboardScreen() {
   const doctor = useCurrentDoctor()!;
+  const { toggle: toggleAvailability } = useAvailabilityToggle(doctor);
   const consultations = usePlatform((s) => s.consultations);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -96,7 +98,7 @@ export default function DashboardScreen() {
       </section>
 
       <div className="mt-4">
-        <StatusBar doctor={doctor} myCall={myCall} now={now} onToggle={() => usePlatform.getState().setAvailability(doctor.id, !doctor.available)} />
+        <StatusBar doctor={doctor} myCall={myCall} now={now} onToggle={() => void toggleAvailability()} />
       </div>
 
       <div className="mt-4 grid gap-5 xl:min-h-[calc(100dvh-419px)] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">

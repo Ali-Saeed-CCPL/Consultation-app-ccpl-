@@ -9,7 +9,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { DEMO_ACCOUNTS, DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS, SEED_HISTORY, SEED_PROFILES } from "@/data/seed";
+import { DOCTORS, SEED_AUDIT, SEED_CONSULTATIONS, SEED_HISTORY, SEED_PROFILES } from "@/data/seed";
 import { isClinicOpen } from "@/lib/clinic";
 import { complaintText } from "@/lib/complaint";
 import type {
@@ -32,10 +32,9 @@ type Actor = Pick<AuditEvent, "actor" | "actorRole">;
 
 interface PlatformState {
   consultations: Consultation[];
+  /** The roster. Accounts live in consult-api; this copy (kept in step by syncDoctor) lets the demo
+      consultations, routing and charts below keep working until they move to the backend too. */
   doctors: Doctor[];
-  /** Sign-ins the clinic admin created for doctors (the demo accounts are in data/seed.ts).
-      ponytail: plain demo store — ccpl-api auth replaces it; never real passwords here. */
-  logins: DoctorLogin[];
   audit: AuditEvent[];
   /** Household members' health profiles, by member id (the Members page). */
   profiles: Record<string, HealthProfile>;
@@ -70,11 +69,9 @@ interface PlatformState {
   approve: (id: string, doctorId: string) => void;
   closeConsult: (id: string, doctorId: string) => void;
 
-  // admin side
-  /** Adds a GP to the roster (off the rota until they go available). Fails on a PMDC number already in use. */
-  addDoctor: (input: { name: string; pmdc: string; username: string; password: string }) => { ok: true; id: string } | { ok: false; error: string };
-  /** Edits a GP and their sign-in (a blank password keeps the current one). Deactivating also takes them off the rota. */
-  updateDoctor: (id: string, input: { name: string; pmdc: string; active: boolean; username: string; password: string }) => { ok: true } | { ok: false; error: string };
+  /** Copies a doctor as consult-api has them into the roster: matched by backend id, else by PMDC number
+      (so the seeded demo doctors keep their consultations), else added. Returns the roster id. */
+  syncDoctor: (input: DoctorFromApi) => string;
 
   setForceClinicOpen: (on: boolean) => void;
   setAutoConnect: (on: boolean) => void;
@@ -82,22 +79,18 @@ interface PlatformState {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
-const ADMIN: Actor = { actor: "Clinic admin", actorRole: "admin" };
-export interface DoctorLogin {
-  doctorId: string;
-  username: string;
-  password: string;
+
+/** What the roster needs from a consult-api doctor (sign-in reply or admin list). */
+export interface DoctorFromApi {
+  userId: string;
+  username?: string;
+  name: string;
+  pmdc: string;
+  available: boolean;
+  active: boolean;
 }
 
-/** Validates a doctor sign-in: username 3+ letters/digits/._-, unique across all accounts; password 6+
-    characters (required for a new login, blank keeps the old one). Returns the cleaned login or an error. */
-function checkLogin(others: DoctorLogin[], username: string, password: string, needPassword: boolean): { username: string; password: string } | string {
-  const u = username.trim().toLowerCase();
-  if (!/^[a-z0-9._-]{3,}$/.test(u)) return "Username: at least 3 characters — letters, numbers, dot, dash or underscore.";
-  if (DEMO_ACCOUNTS.some((a) => a.username === u) || others.some((l) => l.username === u)) return "That username is already taken.";
-  if ((needPassword || password) && password.length < 6) return "Password: at least 6 characters.";
-  return { username: u, password };
-}
+const samePmdc = (a: string, b: string) => a.replace(/\s+/g, " ").trim().toLowerCase() === b.replace(/\s+/g, " ").trim().toLowerCase();
 
 /** "Dr. Ayesha Khan" → "AK": skips the title, first and last names. */
 function initialsFrom(name: string) {
@@ -165,7 +158,6 @@ function seed() {
   return {
     consultations: [...SEED_CONSULTATIONS, ...SEED_HISTORY],
     doctors: DOCTORS,
-    logins: [] as DoctorLogin[],
     audit: SEED_AUDIT,
     profiles: SEED_PROFILES,
     forceClinicOpen: true,
@@ -334,36 +326,24 @@ export const usePlatform = create<PlatformState>()(
         closeConsult: (id, doctorId) =>
           patch(id, { status: "closed", closedAt: Date.now() }, event(id, doctor(doctorId), "Closed consultation", "Status, follow-up and audit complete")),
 
-        addDoctor: ({ name, pmdc, username, password }) => {
-          const clean = { name: name.trim(), pmdc: pmdc.trim() };
-          if (get().doctors.some((d) => d.pmdc.toLowerCase() === clean.pmdc.toLowerCase())) return { ok: false, error: "A doctor with this PMDC number already exists." };
-          const login = checkLogin(get().logins, username, password, true);
-          if (typeof login === "string") return { ok: false, error: login };
-          const id = `d-${uid()}`;
-          set((s) => ({
-            doctors: [...s.doctors, { id, name: clean.name, initials: initialsFrom(clean.name), pmdc: clean.pmdc, role: "gp", available: false, active: true }],
-            logins: [...s.logins, { doctorId: id, ...login }],
-            audit: [event("—", ADMIN, "Added doctor", `${clean.name} · ${clean.pmdc}`), ...s.audit],
-          }));
-          return { ok: true, id };
-        },
-
-        updateDoctor: (id, { name, pmdc, active, username, password }) => {
-          const clean = { name: name.trim(), pmdc: pmdc.trim() };
-          if (get().doctors.some((d) => d.id !== id && d.pmdc.toLowerCase() === clean.pmdc.toLowerCase())) return { ok: false, error: "Another doctor already has this PMDC number." };
-          const current = get().logins.find((l) => l.doctorId === id);
-          // A doctor without an admin-made sign-in can be edited without giving one (both fields blank).
-          const keepNone = !current && !username.trim() && !password;
-          const login = keepNone ? null : checkLogin(get().logins.filter((l) => l.doctorId !== id), username, password, !current);
-          if (typeof login === "string") return { ok: false, error: login };
-          set((s) => ({
-            logins: login ? [...s.logins.filter((l) => l.doctorId !== id), { doctorId: id, username: login.username, password: login.password || current!.password }] : s.logins,
-            doctors: s.doctors.map((d) =>
-              d.id === id ? { ...d, name: clean.name, initials: initialsFrom(clean.name), pmdc: clean.pmdc, active, available: active ? d.available : false } : d,
-            ),
-            audit: [event("—", ADMIN, active ? "Edited doctor" : "Deactivated doctor", `${clean.name} · ${clean.pmdc}`), ...s.audit],
-          }));
-          return { ok: true };
+        // No audit rows here: consult-api records the account changes itself.
+        syncDoctor: (input) => {
+          const found = get().doctors.find((d) => d.userId === input.userId) ?? get().doctors.find((d) => !d.userId && samePmdc(d.pmdc, input.pmdc));
+          const id = found?.id ?? input.userId;
+          const synced: Doctor = {
+            ...(found ?? { role: "gp" as const }),
+            id,
+            userId: input.userId,
+            username: input.username ?? found?.username,
+            name: input.name,
+            initials: initialsFrom(input.name),
+            pmdc: input.pmdc,
+            available: input.active && input.available,
+            active: input.active,
+          };
+          set((s) => ({ doctors: found ? s.doctors.map((d) => (d.id === id ? synced : d)) : [...s.doctors, synced] }));
+          if (synced.available && !found?.available) runAssign();
+          return id;
         },
 
         setForceClinicOpen: (on) => {
@@ -373,7 +353,7 @@ export const usePlatform = create<PlatformState>()(
 
         setAutoConnect: (autoConnect) => set({ autoConnect }),
 
-        // Keeps the doctors and the logins the admin made — only the demo activity starts over.
+        // Keeps the doctors — only the demo activity starts over.
         resetDemo: () => set(activity()),
       };
     },
@@ -384,13 +364,14 @@ export const usePlatform = create<PlatformState>()(
       // v6 added six weeks of finished consultations (SEED_HISTORY) for the admin's charts; added, not re-seeded.
       // v9 cleared the test activity once (doctors and logins kept); v10 adds the v6 history to data already on v9.
       // v11 added members' health profiles (seeded; any already saved are kept).
-      version: 11,
+      // v12 dropped the doctor logins kept in the browser (plain-text passwords): sign-in is consult-api's now.
+      version: 12,
       migrate: (persisted, from) => {
         if (from < 2) return seed() as PlatformState;
         // v9: a clean slate for testing — every test call, queue entry and audit row goes; the
         // demo consultations come back as seeded. Doctors and their logins are kept.
         if (from < 9) return { ...(persisted as PlatformState), ...activity(), profiles: SEED_PROFILES, autoConnect: false } as PlatformState;
-        const s = persisted as PlatformState;
+        const { logins: _plainTextPasswords, ...s } = persisted as PlatformState & { logins?: unknown };
         const now = Date.now();
         const have = new Set(s.consultations.map((c) => c.id));
         const history = from < 10 ? SEED_HISTORY.filter((c) => !have.has(c.id)) : [];
@@ -416,7 +397,6 @@ export const usePlatform = create<PlatformState>()(
       partialize: (s) => ({
         consultations: s.consultations,
         doctors: s.doctors,
-        logins: s.logins,
         audit: s.audit,
         profiles: s.profiles,
         forceClinicOpen: s.forceClinicOpen,

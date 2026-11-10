@@ -5,14 +5,9 @@
 
 import type { AuditEvent, Consultation, Doctor, HealthProfile, Household, Member, TranscriptLine } from "@/lib/types";
 
-/** Prototype sign-in (features/auth/login-screen.tsx) until ccpl-api auth is wired in.
-    The patient account opens the demo household; the doctor account is Dr. Ayesha Khan;
-    the admin account oversees the clinic (every doctor, schedule and the audit log). */
-export const DEMO_ACCOUNTS = [
-  { username: "patient", password: "123", role: "patient", label: "Patient view" },
-  { username: "doctor", password: "123", role: "doctor", doctorId: "d-ayesha", label: "Doctor view" },
-  { username: "admin", password: "123", role: "admin", label: "Admin view" },
-] as const;
+/** Prototype patient sign-in (features/auth/login-screen.tsx) until the patient login is connected.
+    Opens the demo household. Doctors and the admin sign in against consult-api. */
+export const DEMO_ACCOUNTS = [{ username: "patient", password: "123", role: "patient", label: "Patient view" }] as const;
 
 export const HOUSEHOLD: Household = {
   phone: "03001234567",

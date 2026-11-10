@@ -12,6 +12,7 @@ import NotificationBell from "@/components/layout/notification-bell";
 import UserMenu from "@/components/layout/user-menu";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
 import { ADMIN_MODULES, PORTAL_MODULES } from "@/config/navigation";
+import { useAvailabilityToggle } from "@/features/portal/use-doctor-presence";
 import { usePlatform } from "@/store/consult-store";
 import { useSession } from "@/store/session-store";
 import type { Doctor } from "@/lib/types";
@@ -25,12 +26,17 @@ export default function TopNav({ doctor }: { doctor?: Doctor }) {
   const base = doctor ? "/portal" : "/admin";
   const modules = doctor ? PORTAL_MODULES : ADMIN_MODULES;
   const navigate = useNavigate();
-  const doctors = usePlatform((s) => s.doctors);
-  const setAvailability = usePlatform((s) => s.setAvailability);
   const resetDemo = usePlatform((s) => s.resetDemo);
-  const signInDoctor = useSession((s) => s.signInDoctor);
   const signOut = useSession((s) => s.signOut);
   const username = useSession((s) => s.username);
+  const changePassword = { label: "Change password", to: "/change-password" };
+  const resetDemoItem = {
+    label: "Reset demo data",
+    onClick: () => {
+      resetDemo();
+      toast.success("Demo data reset");
+    },
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-[50000] font-sans">
@@ -47,21 +53,7 @@ export default function TopNav({ doctor }: { doctor?: Doctor }) {
 
         {doctor ? (
         <div className="flex items-center gap-2.5 ml-auto flex-shrink-0">
-          {/* Availability — a GP only gets rung while available. */}
-          <button
-            type="button"
-            onClick={() => setAvailability(doctor.id, !doctor.available)}
-            className={`inline-flex items-center gap-2 rounded-(--radius-pill) border px-3 py-1.5 text-[12.5px] font-semibold ${
-              doctor.available
-                ? "border-[var(--color-green)] bg-[var(--green-tint)] text-[var(--color-green-ink)]"
-                : "border-[var(--border-input)] bg-[var(--white)] text-[var(--mute)]"
-            }`}
-            aria-pressed={doctor.available}
-            title="Only available GPs are rung for new patients"
-          >
-            <span className={`h-2 w-2 rounded-full ${doctor.available ? "bg-[var(--green)]" : "bg-[var(--faint)]"}`} />
-            {doctor.available ? "Available" : "Unavailable"}
-          </button>
+          <AvailabilitySwitch doctor={doctor} />
           <ThemeToggle />
           <NotificationBell reader={{ kind: "doctor", id: doctor.id, name: doctor.name }} user={`doctor:${doctor.id}`} />
           <UserMenu
@@ -69,40 +61,7 @@ export default function TopNav({ doctor }: { doctor?: Doctor }) {
             name={doctor.name}
             id={`${username ?? "doctor"} · ${doctor.pmdc}`}
             role="GP"
-            items={[
-              { label: "My profile", onClick: () => toast("Doctor profiles come with ccpl-api.") },
-              {
-                label: "Reset demo data",
-                onClick: () => {
-                  resetDemo();
-                  toast.success("Demo data reset");
-                },
-              },
-            ]}
-            extra={(close) => (
-              <div className="border-b border-[var(--hair)] pb-1">
-                <p className="px-4 pt-3 pb-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[var(--faint)]">
-                  Switch doctor (demo)
-                </p>
-                {doctors
-                  .filter((d) => d.id !== doctor.id && d.active !== false)
-                  .map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        close();
-                        signInDoctor(d.id, username ?? "doctor");
-                        toast.success(`Signed in as ${d.name}`);
-                      }}
-                      className="block w-full px-4 py-2 text-left text-[13px] text-[var(--body)] hover:bg-[var(--hair)]"
-                    >
-                      {d.name}
-                    </button>
-                  ))}
-              </div>
-            )}
+            items={[changePassword, resetDemoItem]}
             onSignOut={() => {
               signOut();
               navigate({ to: "/login" });
@@ -117,15 +76,7 @@ export default function TopNav({ doctor }: { doctor?: Doctor }) {
               name="Clinic admin"
               id={username ?? "admin"}
               role="Admin"
-              items={[
-                {
-                  label: "Reset demo data",
-                  onClick: () => {
-                    resetDemo();
-                    toast.success("Demo data reset");
-                  },
-                },
-              ]}
+              items={[changePassword, resetDemoItem]}
               onSignOut={() => {
                 signOut();
                 navigate({ to: "/login" });
@@ -155,5 +106,27 @@ export default function TopNav({ doctor }: { doctor?: Doctor }) {
         })}
       </nav>
     </header>
+  );
+}
+
+/** Availability — a GP only gets rung while available. Saved on the server first. */
+function AvailabilitySwitch({ doctor }: { doctor: Doctor }) {
+  const { toggle, saving } = useAvailabilityToggle(doctor);
+  return (
+    <button
+      type="button"
+      onClick={() => void toggle()}
+      disabled={saving}
+      className={`inline-flex items-center gap-2 rounded-(--radius-pill) border px-3 py-1.5 text-[12.5px] font-semibold disabled:opacity-60 ${
+        doctor.available
+          ? "border-[var(--color-green)] bg-[var(--green-tint)] text-[var(--color-green-ink)]"
+          : "border-[var(--border-input)] bg-[var(--white)] text-[var(--mute)]"
+      }`}
+      aria-pressed={doctor.available}
+      title="Only available GPs are rung for new patients"
+    >
+      <span className={`h-2 w-2 rounded-full ${doctor.available ? "bg-[var(--green)]" : "bg-[var(--faint)]"}`} />
+      {doctor.available ? "Available" : "Unavailable"}
+    </button>
   );
 }

@@ -79,6 +79,10 @@ export interface Doctor {
   available: boolean;
   /** Set by the clinic admin. An inactive doctor is off the rota and can't go available. Missing = active. */
   active?: boolean;
+  /** consult-api's id for this doctor (staff user_id). Missing = a demo-only doctor the backend doesn't know. */
+  userId?: string;
+  /** Their sign-in name, from consult-api. */
+  username?: string;
 }
 
 export type ConsultStatus =

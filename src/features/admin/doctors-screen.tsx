@@ -16,7 +16,6 @@ import DoctorForm from "@/features/admin/doctor-form";
 import { doctorStats, fmtMinutes } from "@/features/admin/doctor-stats";
 import { CLINIC_HOURS, fmtDateTime } from "@/lib/clinic";
 import { usePlatform } from "@/store/consult-store";
-import { DEMO_ACCOUNTS } from "@/data/seed";
 import type { Doctor } from "@/lib/types";
 
 type StatusFilter = "all" | "available" | "oncall" | "unavailable" | "inactive";
@@ -50,7 +49,6 @@ export default function DoctorsScreen() {
   const navigate = useNavigate();
   const doctors = usePlatform((s) => s.doctors);
   const consultations = usePlatform((s) => s.consultations);
-  const logins = usePlatform((s) => s.logins);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   // Empty range = all time.
@@ -69,7 +67,7 @@ export default function DoctorsScreen() {
   const [ty, tm, td] = new Date().toLocaleDateString("en-CA", { timeZone: CLINIC_HOURS.tz }).split("-").map(Number);
   const needle = q.trim().toLowerCase();
   const rows = doctors
-    .map((d) => ({ d, s: doctorStats(inPeriod, d.id), state: stateOf(d, onCall(d)), login: signInOf(d.id, logins) }))
+    .map((d) => ({ d, s: doctorStats(inPeriod, d.id), state: stateOf(d, onCall(d)), login: d.username }))
     .filter(({ d }) => !needle || d.name.toLowerCase().includes(needle) || d.pmdc.toLowerCase().includes(needle))
     .filter(({ state }) => status === "all" || state === status)
     .sort((a, b) =>
@@ -165,11 +163,6 @@ export default function DoctorsScreen() {
       <DoctorForm open={adding} onClose={() => setAdding(false)} onSaved={(id) => id && navigate({ to: "/admin/doctors/$id", params: { id } })} />
     </>
   );
-}
-
-/** The doctor's username: the one the admin set, else a built-in demo account. */
-export function signInOf(doctorId: string, logins: { doctorId: string; username: string }[]) {
-  return logins.find((l) => l.doctorId === doctorId)?.username ?? DEMO_ACCOUNTS.find((a) => "doctorId" in a && a.doctorId === doctorId)?.username;
 }
 
 export function DoctorStatus({ doctor, onCall }: { doctor: Doctor; onCall: boolean }) {

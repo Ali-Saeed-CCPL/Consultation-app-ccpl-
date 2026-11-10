@@ -1,15 +1,17 @@
 /* Sign-in screen — the ERP's login layout: a white brand panel on the left,
    the credential panel on the canvas to the right (stacked below `lg`).
-   One form for both views; the account decides where it lands. Demo
-   accounts only until ccpl-api auth is wired in (data/seed.ts DEMO_ACCOUNTS). */
+   One form for everyone; the account decides where it lands. Doctors and the
+   admin sign in against consult-api (features/auth/staff-sign-in.ts). The
+   patient account is still the demo one (data/seed.ts DEMO_ACCOUNTS) until the
+   patient login is connected. */
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { MonitorSmartphone, ShieldCheck, Stethoscope } from "lucide-react";
+import { MonitorSmartphone } from "lucide-react";
 import ThemeToggle from "@/components/common/theme-toggle";
 import { APP_NAME, BRAND, LOGO_SRC } from "@/config/app.constants";
 import { DEMO_ACCOUNTS, HOUSEHOLD } from "@/data/seed";
-import { usePlatform } from "@/store/consult-store";
+import { signInStaff } from "@/features/auth/staff-sign-in";
 import { useSession } from "@/store/session-store";
 
 function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
@@ -26,38 +28,29 @@ const inputClass =
 export default function LoginScreen() {
   const navigate = useNavigate();
   const signInPatient = useSession((s) => s.signInPatient);
-  const signInDoctor = useSession((s) => s.signInDoctor);
-  const signInAdmin = useSession((s) => s.signInAdmin);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function enter(user: string, secret: string) {
+  async function enter(user: string, secret: string) {
     const name = user.trim().toLowerCase();
-    const account = DEMO_ACCOUNTS.find((a) => a.username === name && a.password === secret);
-    // A sign-in the clinic admin created for a doctor (admin → Doctors).
-    const { logins, doctors } = usePlatform.getState();
-    const made = account ? undefined : logins.find((l) => l.username === name && l.password === secret);
-    if (made) {
-      if (doctors.find((d) => d.id === made.doctorId)?.active === false) return setError("This doctor account is inactive. Ask the clinic admin.");
-      signInDoctor(made.doctorId, made.username);
-      navigate({ to: "/portal/dashboard", replace: true });
-      return;
-    }
-    if (!account) {
-      setError("That username and password don't match an account.");
-      return;
-    }
-    if (account.role === "patient") {
-      signInPatient(HOUSEHOLD.phone, account.username);
+    // The demo patient (until the patient login is connected).
+    const patient = DEMO_ACCOUNTS.find((a) => a.username === name && a.password === secret);
+    if (patient) {
+      signInPatient(HOUSEHOLD.phone, patient.username);
       navigate({ to: "/patient/home", replace: true });
-    } else if (account.role === "admin") {
-      signInAdmin(account.username);
-      navigate({ to: "/admin/dashboard", replace: true });
-    } else {
-      signInDoctor(account.doctorId, account.username);
-      navigate({ to: "/portal/dashboard", replace: true });
+      return;
+    }
+    // Everyone else is a doctor or the admin: consult-api checks the password.
+    setBusy(true);
+    try {
+      navigate({ to: await signInStaff(user, secret), replace: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't sign in. Try again.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -66,7 +59,7 @@ export default function LoginScreen() {
     if (!username.trim()) return setError("Enter your username.");
     if (!password) return setError("Enter your password.");
     setError("");
-    enter(username, password);
+    void enter(username, password);
   }
 
   return (
@@ -107,7 +100,7 @@ export default function LoginScreen() {
                   type="text"
                   autoComplete="username"
                   autoFocus
-                  placeholder="patient or doctor"
+                  placeholder="Your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className={inputClass}
@@ -138,16 +131,17 @@ export default function LoginScreen() {
               </div>
               <button
                 type="submit"
-                className="h-11 w-full rounded-(--radius-md) btn-royal border border-transparent text-white text-[14px] font-semibold transition-colors"
+                disabled={busy}
+                className="h-11 w-full rounded-(--radius-md) btn-royal border border-transparent text-white text-[14px] font-semibold transition-colors disabled:opacity-60"
               >
-                Sign in
+                {busy ? "Signing in…" : "Sign in"}
               </button>
             </div>
           </form>
 
-          {/* Demo accounts — click to sign straight in. */}
+          {/* Demo patient — click to sign straight in (until the patient login is connected). */}
           <div className="mt-8">
-            <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-(--color-mute)">Demo accounts</p>
+            <p className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.14em] text-(--color-mute)">Demo patient</p>
             <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
               {DEMO_ACCOUNTS.map((a) => (
                 <button
@@ -156,12 +150,12 @@ export default function LoginScreen() {
                   onClick={() => {
                     setUsername(a.username);
                     setPassword(a.password);
-                    enter(a.username, a.password);
+                    void enter(a.username, a.password);
                   }}
                   className="flex flex-col items-start gap-2 rounded-(--radius-card) border border-(--color-line) bg-(--color-surface) px-4 py-3 text-left hover:border-(--color-link) hover:shadow-(--shadow-md)"
                 >
                   <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-(--radius-md) bg-[var(--tint)] text-[var(--link)]">
-                    {a.role === "patient" ? <MonitorSmartphone size={16} /> : a.role === "admin" ? <ShieldCheck size={16} /> : <Stethoscope size={16} />}
+                    <MonitorSmartphone size={16} />
                   </span>
                   <span className="min-w-0">
                     <span className="block whitespace-nowrap text-[13.5px] font-semibold text-(--color-ink)">{a.label}</span>

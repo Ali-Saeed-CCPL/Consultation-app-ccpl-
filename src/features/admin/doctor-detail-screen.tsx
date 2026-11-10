@@ -12,7 +12,7 @@ import DateRangePicker from "@/components/ui/date-range-picker";
 import StatusTag from "@/components/ui/status-tag";
 import { Cell, EmptyRow, Row, Table } from "@/components/ui/table";
 import DoctorForm from "@/features/admin/doctor-form";
-import { DoctorStatus, signInOf } from "@/features/admin/doctors-screen";
+import { DoctorStatus } from "@/features/admin/doctors-screen";
 import { doctorStats, fmtMinutes } from "@/features/admin/doctor-stats";
 import { complaintText } from "@/lib/complaint";
 import { CLINIC_HOURS, fmtDateTime, fmtDuration } from "@/lib/clinic";
@@ -24,8 +24,6 @@ export default function DoctorDetailScreen({ id }: { id: string }) {
   const navigate = useNavigate();
   const doctor = usePlatform((s) => s.doctors.find((d) => d.id === id));
   const all = usePlatform((s) => s.consultations);
-  const setAvailability = usePlatform((s) => s.setAvailability);
-  const logins = usePlatform((s) => s.logins);
   const [editing, setEditing] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -45,7 +43,6 @@ export default function DoctorDetailScreen({ id }: { id: string }) {
   const s = doctorStats(inRange, doctor.id);
   const rows = inRange.filter((c) => c.prescriberId === doctor.id && c.callStartedAt).sort((a, b) => b.createdAt - a.createdAt);
   const onCall = all.some((c) => (c.status === "in_call" || c.status === "ringing") && c.prescriberId === doctor.id);
-  const active = doctor.active !== false;
   const [ty, tm, td] = dayOf(Date.now()).split("-").map(Number);
 
   return (
@@ -62,20 +59,14 @@ export default function DoctorDetailScreen({ id }: { id: string }) {
         sub={
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[12.5px]">{doctor.pmdc}</span> · General practitioner · Sign-in{" "}
-            <span className="font-mono text-[12.5px]">{signInOf(doctor.id, logins) ?? "none"}</span> · <DoctorStatus doctor={doctor} onCall={onCall} />
+            <span className="font-mono text-[12.5px]">{doctor.username ?? "none"}</span> · <DoctorStatus doctor={doctor} onCall={onCall} />
           </span>
         }
         actions={
-          <>
-            {active ? (
-              <Button onClick={() => setAvailability(doctor.id, !doctor.available)} disabled={onCall}>
-                {doctor.available ? "Set unavailable" : "Set available"}
-              </Button>
-            ) : null}
-            <Button variant="primary" onClick={() => setEditing(true)}>
-              <Pencil size={15} /> Edit
-            </Button>
-          </>
+          // Availability is the doctor's own switch (the server allows only them to change it).
+          <Button variant="primary" onClick={() => setEditing(true)}>
+            <Pencil size={15} /> Edit
+          </Button>
         }
       />
       <main className="grid gap-5 p-6">
